@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getAIMessage } from "../api/api";
 import { marked } from "marked";
+import { Message } from "../types/chat/Message";
 
 const ChatWindow: React.FC = () => {
-    const defaultMessage = [{
+    const defaultMessage: Message[] = [{
         role: "assistant",
         content: "Hi, how can I help you today?"
     }];
 
-    const [messages, setMessages] = useState(defaultMessage);
+    const [messages, setMessages] = useState<Message[]>(defaultMessage);
     const [input, setInput] = useState<string>("");
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -46,15 +47,15 @@ const ChatWindow: React.FC = () => {
                 <div
                     key={index}
                     className={`flex flex-col max-w-full my-1 ${message.role === "user"
-                            ? "self-end items-end"
-                            : "items-start"
+                        ? "self-end items-end"
+                        : "items-start"
                         }`}
                 >
                     {message.content && (
                         <div
                             className={`whitespace-pre-line py-3.5 px-3.5 my-0.5 rounded-[10px] text-sm font-normal leading-[1.4] text-left ${message.role === "user"
-                                    ? "bg-[#1b3875] text-white rounded-tr-none"
-                                    : "bg-[#f6f6f6] text-black rounded-tl-none w-full"
+                                ? "bg-[#1b3875] text-white rounded-tr-none"
+                                : "bg-[#f6f6f6] text-black rounded-tl-none w-full"
                                 }`}
                         >
                             <div dangerouslySetInnerHTML={{ __html: marked(message.content).replace(/<p>|<\/p>/g, "") }} />
