@@ -126,15 +126,10 @@ TONE: Professional, helpful, and customer-focused. Be concise but thorough.`;
 app.post('/api/chat', async (req, res) => {
     try {
         const { message, conversationId } = req.body;
+        console.log(`\n📨 [CHAT] Received message: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"`);
 
         if (!message) {
             return res.status(400).json({ error: 'Message is required' });
-        }
-
-        if (!process.env.OPENAI_API_KEY) {
-            return res.status(500).json({
-                error: 'OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file.'
-            });
         }
 
         // Get or create conversation history
@@ -154,24 +149,34 @@ app.post('/api/chat', async (req, res) => {
         // Check if we should use mock mode (when API key is invalid or quota exceeded)
         const USE_MOCK_MODE = process.env.USE_MOCK_MODE === 'true' || !process.env.OPENAI_API_KEY;
 
+        if (USE_MOCK_MODE && !process.env.OPENAI_API_KEY) {
+            console.log('⚠️  No OpenAI API key found - using mock mode');
+        }
+
         let assistantMessage;
 
         if (USE_MOCK_MODE) {
             // Mock responses for testing without API
+            console.log('🔵 [MOCK MODE] Using mock response generator');
             assistantMessage = generateMockResponse(message, messages);
         } else {
             // Call OpenAI API
             try {
+                console.log('🟢 [API] Calling OpenAI API with', messages.length, 'messages...');
+                const startTime = Date.now();
                 const completion = await openai.chat.completions.create({
                     model: 'gpt-4o-mini',
                     messages: messages,
                     temperature: 0.7,
                     max_tokens: 1000,
                 });
+                const duration = Date.now() - startTime;
                 assistantMessage = completion.choices[0].message.content;
+                console.log(`✅ [API] OpenAI response received in ${duration}ms (${completion.usage?.total_tokens || 'unknown'} tokens)`);
             } catch (apiError) {
                 // If API fails (quota, etc.), fall back to mock mode
-                console.warn('OpenAI API error, using mock mode:', apiError.message);
+                console.error('❌ [API ERROR]', apiError.message);
+                console.warn('🔄 [FALLBACK] Using mock mode due to API error');
                 assistantMessage = generateMockResponse(message, messages);
             }
         }
