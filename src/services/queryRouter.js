@@ -1,5 +1,6 @@
 const { extractPartNumbers, extractModelNumbers } = require('../utils/extractors');
 const { searchProducts } = require('./vectorStore');
+const { QUERY_PATTERNS } = require('../constants/query');
 
 /**
  * Smart Query Router - Decides when to use regex vs RAG
@@ -11,69 +12,49 @@ const { searchProducts } = require('./vectorStore');
  */
 
 /**
+ * Checks if a query matches a pattern's requirements and keywords
+ */
+function matchesPattern(lowerQuery, pattern, hasPartNumber, hasModelNumber) {
+    // Check requirements
+    if (pattern.requires.includes('partNumber') && !hasPartNumber) return false;
+    if (pattern.requires.includes('modelNumber') && !hasModelNumber) return false;
+
+    // Check keywords (if any)
+    if (pattern.keywords.length > 0) {
+        const hasKeyword = pattern.keywords.some(keyword => lowerQuery.includes(keyword));
+        if (!hasKeyword) return false;
+    }
+
+    return true;
+}
+
+/**
  * Determines the query type and best retrieval strategy
  */
 function analyzeQuery(query) {
     const lowerQuery = query.toLowerCase();
 
-    const analysis = {
-        hasPartNumber: false,
-        hasModelNumber: false,
-        partNumbers: [],
-        modelNumbers: [],
-        queryType: 'general', // 'part_lookup', 'compatibility', 'troubleshooting', 'installation', 'general'
-        useRegex: false,
-        useRAG: true,
-        confidence: 'medium'
-    };
-
     // Extract structured data with regex
-    analysis.partNumbers = extractPartNumbers(query);
-    analysis.modelNumbers = extractModelNumbers(query);
-    analysis.hasPartNumber = analysis.partNumbers.length > 0;
-    analysis.hasModelNumber = analysis.modelNumbers.length > 0;
+    const partNumbers = extractPartNumbers(query);
+    const modelNumbers = extractModelNumbers(query);
+    const hasPartNumber = partNumbers.length > 0;
+    const hasModelNumber = modelNumbers.length > 0;
 
-    // Determine query type
-    if (analysis.hasPartNumber && (lowerQuery.includes('compatible') || lowerQuery.includes('fit') || lowerQuery.includes('work with'))) {
-        analysis.queryType = 'compatibility';
-        analysis.useRegex = true; // Exact lookup for compatibility
-        analysis.useRAG = true; // Also get semantic context
-        analysis.confidence = 'high';
-    } else if (analysis.hasPartNumber && (lowerQuery.includes('install') || lowerQuery.includes('how to') || lowerQuery.includes('steps'))) {
-        analysis.queryType = 'installation';
-        analysis.useRegex = true; // Exact lookup for installation
-        analysis.useRAG = true; // Also get semantic context
-        analysis.confidence = 'high';
-    } else if (analysis.hasPartNumber) {
-        analysis.queryType = 'part_lookup';
-        analysis.useRegex = true; // Exact lookup
-        analysis.useRAG = true; // Also get semantic context
-        analysis.confidence = 'high';
-    } else if (lowerQuery.includes('not working') || lowerQuery.includes('broken') || lowerQuery.includes('fix') ||
-        lowerQuery.includes('troubleshoot') || lowerQuery.includes('problem') || lowerQuery.includes('leaking') ||
-        lowerQuery.includes('noise') || lowerQuery.includes('issue')) {
-        analysis.queryType = 'troubleshooting';
-        analysis.useRegex = false; // No exact match possible
-        analysis.useRAG = true; // Semantic search for symptoms
-        analysis.confidence = 'medium';
-    } else if (lowerQuery.includes('install') || lowerQuery.includes('how to') || lowerQuery.includes('replace')) {
-        analysis.queryType = 'installation';
-        analysis.useRegex = false;
-        analysis.useRAG = true; // Semantic search
-        analysis.confidence = 'medium';
-    } else if (analysis.hasModelNumber) {
-        analysis.queryType = 'model_query';
-        analysis.useRegex = true; // Exact lookup
-        analysis.useRAG = true; // Also get semantic context
-        analysis.confidence = 'high';
-    } else {
-        analysis.queryType = 'general';
-        analysis.useRegex = false;
-        analysis.useRAG = true; // Semantic search
-        analysis.confidence = 'low';
-    }
+    // Find matching pattern (first match wins due to specificity ordering)
+    const matchedPattern = QUERY_PATTERNS.find(pattern =>
+        matchesPattern(lowerQuery, pattern, hasPartNumber, hasModelNumber)
+    ) || QUERY_PATTERNS[QUERY_PATTERNS.length - 1]; // Fallback to 'general'
 
-    return analysis;
+    return {
+        hasPartNumber,
+        hasModelNumber,
+        partNumbers,
+        modelNumbers,
+        queryType: matchedPattern.type,
+        useRegex: matchedPattern.useRegex,
+        useRAG: matchedPattern.useRAG,
+        confidence: matchedPattern.confidence
+    };
 }
 
 /**
