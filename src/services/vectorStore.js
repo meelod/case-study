@@ -2,6 +2,7 @@
 // Uses OpenAI embeddings + cosine similarity search
 
 const simpleVectorStore = require('./simpleVectorStore');
+const { scrapePartSelect, formatProductsForChromaDB } = require('./partSelectScraper');
 const { SAMPLE_PRODUCTS } = require('../constants/products');
 
 // Initialize the vector store with scraped or sample data
@@ -22,7 +23,7 @@ async function initializeVectorStore(useScraper = true) {
         if (useScraper && process.env.SCRAPE_PARTSELECT !== 'false') {
             try {
                 console.log('Scraping PartSelect website for product data...');
-                const { scrapePartSelect, formatProductsForChromaDB } = require('./partSelectScraper');
+                
                 const scrapedProducts = await scrapePartSelect();
 
                 if (scrapedProducts.length > 0) {
