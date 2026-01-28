@@ -4,13 +4,14 @@ import Chat from "./pages/Chat";
 const App: React.FC = () => {
     return (
         <div className="bg-gray-50 h-screen flex flex-col overflow-hidden">
-            <div className="fixed top-0 left-0 w-full bg-white shadow-md border-b border-gray-200 flex items-center justify-between px-6 h-[60px] z-50">
+            {/* Compact header for side panel */}
+            <div className="bg-white shadow-sm border-b border-gray-200 flex items-center justify-between px-4 py-2 flex-shrink-0">
                 <div className="flex items-center">
-                    <h1 className="text-xl font-bold text-teal-600">PartSelect</h1>
-                    <span className="ml-3 text-sm text-gray-500">Assistant</span>
+                    <h1 className="text-lg font-bold text-teal-600">PartSelect</h1>
+                    <span className="ml-2 text-xs text-gray-500">Assistant</span>
                 </div>
-                <div className="text-sm text-gray-600">
-                    Refrigerator & Dishwasher Parts
+                <div className="text-xs text-gray-600 hidden sm:block">
+                    Parts Helper
                 </div>
             </div>
             <Chat />

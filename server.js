@@ -59,15 +59,22 @@ app.post('/api/chat', async (req, res) => {
             console.warn('[RAG] Error retrieving context, continuing without it:', ragError.message);
         }
 
-        // Add user message with context if available
-        const userMessageWithContext = contextMessage
-            ? `${message}\n\n${contextMessage}`
-            : message;
+        // Add user message (keep it clean; attach RAG context separately to reduce token churn)
+        messages.push({ role: 'user', content: message });
 
-        messages.push({
-            role: 'user',
-            content: userMessageWithContext
-        });
+        // Attach RAG context as a short system message so it doesn't bloat the user's content.
+        if (contextMessage) {
+            messages.push({
+                role: 'system',
+                content: contextMessage
+            });
+        }
+
+        // Limit history to reduce token usage (keep system prompt + last 6 messages)
+        if (messages.length > 7) {
+            const system = messages[0];
+            messages = [system, ...messages.slice(-6)];
+        }
 
         // Check if we should use mock mode (when API key is invalid or quota exceeded)
         const USE_MOCK_MODE = process.env.USE_MOCK_MODE === 'true' || !process.env.OPENAI_API_KEY;
