@@ -4,12 +4,12 @@ import { MessageContentProps } from "../../types/chat/ChatComponents";
 import ProductCard from "../ProductCard";
 import ProductDivider from "./ProductDivider";
 
-const MessageContent: React.FC<MessageContentProps> = ({
+const MessageContent = ({
     content,
     messageIndex,
     isUser,
     productData,
-}) => {
+}: MessageContentProps) => {
     if (isUser || !productData.has(messageIndex)) {
         // For user messages or messages without products, render normally
         return (

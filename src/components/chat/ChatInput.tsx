@@ -1,13 +1,13 @@
 import React from "react";
 import { ChatInputProps } from "../../types/chat/ChatComponents";
 
-const ChatInput: React.FC<ChatInputProps> = ({
+const ChatInput = ({
     input,
     onInputChange,
     onSend,
     disabled = false,
     placeholder = "Ask about refrigerator or dishwasher parts...",
-}) => {
+}: ChatInputProps) => {
     const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>): void => {
         if (e.key === "Enter" && !e.shiftKey) {
             onSend();

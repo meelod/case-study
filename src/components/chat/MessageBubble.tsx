@@ -1,9 +1,8 @@
 import React from "react";
-import { Message } from "../../types/chat/GptMessage";
 import { MessageBubbleProps } from "../../types/chat/ChatComponents";
 import MessageContent from "./MessageContent";
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, index, productData }) => {
+const MessageBubble = ({ message, index, productData }: MessageBubbleProps) => {
     const isUser = message.role === "user";
 
     return (
