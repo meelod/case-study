@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getAIMessage, getProductByPartNumber } from "../api/api";
-import { Message } from "../types/chat/Message";
+import { Message } from "../types/chat/GptMessage";
 import { extractPartNumbersFromText } from "../utils/productExtractor";
 import MessageBubble from "../components/chat/MessageBubble";
 import ChatInput from "../components/chat/ChatInput";

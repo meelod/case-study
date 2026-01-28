@@ -1,14 +1,8 @@
 import React from "react";
 import { marked } from "marked";
+import { MessageContentProps } from "../../types/chat/ChatComponents";
 import ProductCard from "../ProductCard";
 import ProductDivider from "./ProductDivider";
-
-interface MessageContentProps {
-    content: string;
-    messageIndex: number;
-    isUser: boolean;
-    productData: Map<number, any>;
-}
 
 const MessageContent: React.FC<MessageContentProps> = ({
     content,

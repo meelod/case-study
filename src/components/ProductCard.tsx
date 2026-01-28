@@ -1,13 +1,6 @@
 import React, { useMemo, useState } from "react";
+import { ProductCardProps } from "../types/product/ProductComponents";
 import { getProductImageUrl } from "../utils/productExtractor";
-
-interface ProductCardProps {
-    partNumber: string;
-    name: string;
-    url: string;
-    description?: string;
-    imageUrl?: string;
-}
 
 const ProductCard: React.FC<ProductCardProps> = ({ partNumber, name, url, description, imageUrl: propImageUrl }) => {
     // Use provided imageUrl or fallback to constructed URL

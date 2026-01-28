@@ -1,12 +1,5 @@
 import React from "react";
-
-interface ChatInputProps {
-    input: string;
-    onInputChange: (value: string) => void;
-    onSend: () => void;
-    disabled?: boolean;
-    placeholder?: string;
-}
+import { ChatInputProps } from "../../types/chat/ChatComponents";
 
 const ChatInput: React.FC<ChatInputProps> = ({
     input,

@@ -1,8 +1,5 @@
 import React from "react";
-
-interface ProductDividerProps {
-    label?: string;
-}
+import { ProductDividerProps } from "../../types/product/ProductComponents";
 
 const ProductDivider: React.FC<ProductDividerProps> = ({ label = "OR" }) => {
     return (
