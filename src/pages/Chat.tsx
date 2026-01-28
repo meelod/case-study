@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { getAIMessage, getProductByPartNumber } from "../api/api";
 import { Message } from "../types/chat/Message";
 import { extractPartNumbersFromText } from "../utils/productExtractor";
-import { MessageBubble, ChatInput } from "../components/chat";
+import MessageBubble from "../components/chat/MessageBubble";
+import ChatInput from "../components/chat/ChatInput";
 
 const Chat: React.FC = () => {
     const defaultMessage: Message[] = [
