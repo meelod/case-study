@@ -69,7 +69,7 @@ const ChatWindow: React.FC = () => {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Type a message..."
-                    onKeyPress={handleKeyPress}
+                    onKeyDown={handleKeyPress}
                     className="flex-1 px-2.5 py-2.5 mr-2.5 rounded-[5px] border border-[#ccc] text-sm"
                 />
                 <button
