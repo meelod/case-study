@@ -42,39 +42,43 @@ const ChatWindow: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 overflow-y-auto p-5 box-border flex flex-col pb-0.5 text-base mt-[60px] mb-[70px]">
+        <div className="flex-1 overflow-y-auto p-6 box-border flex flex-col pb-0 text-base mt-[60px] mb-[80px] bg-gray-50 min-h-screen">
             {messages.map((message, index) => (
                 <div
                     key={index}
-                    className={`flex flex-col max-w-full my-1 ${message.role === "user"
-                        ? "self-end items-end"
+                    className={`flex flex-col max-w-[85%] my-2 ${message.role === "user"
+                        ? "self-end items-end ml-auto"
                         : "items-start"
                         }`}
                 >
                     {message.content && (
                         <div
-                            className={`whitespace-pre-line py-3.5 px-3.5 my-0.5 rounded-[10px] text-sm font-normal leading-[1.4] text-left ${message.role === "user"
-                                ? "bg-[#1b3875] text-white rounded-tr-none"
-                                : "bg-[#f6f6f6] text-black rounded-tl-none w-full"
+                            className={`whitespace-pre-line py-3 px-4 my-1 rounded-lg text-sm font-normal leading-relaxed text-left shadow-sm ${message.role === "user"
+                                ? "bg-teal-600 text-white rounded-tr-sm"
+                                : "bg-white text-gray-800 rounded-tl-sm border border-gray-200"
                                 }`}
                         >
-                            <div dangerouslySetInnerHTML={{ __html: marked(message.content).replace(/<p>|<\/p>/g, "") }} />
+                            <div
+                                className={`max-w-none ${message.role === "user" ? "text-white prose-invert" : "prose prose-sm"}`}
+                                dangerouslySetInnerHTML={{ __html: marked(message.content).replace(/<p>|<\/p>/g, "") }}
+                            />
                         </div>
                     )}
                 </div>
             ))}
             <div ref={messagesEndRef} />
-            <div className="text-[15px] p-2.5 bottom-0 flex border-t border-[#ccc] bg-white fixed w-[calc(100%-40px)]">
+            <div className="text-sm p-4 bottom-0 left-0 right-0 flex border-t border-gray-200 bg-white fixed shadow-lg">
                 <input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Type a message..."
+                    placeholder="Ask about refrigerator or dishwasher parts..."
                     onKeyDown={handleKeyPress}
-                    className="flex-1 px-2.5 py-2.5 mr-2.5 rounded-[5px] border border-[#ccc] text-sm"
+                    className="flex-1 px-4 py-3 mr-3 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
                 <button
-                    className="px-5 py-2.5 border-none rounded-[5px] bg-[#121212] text-white cursor-pointer text-sm"
+                    className="px-6 py-3 border-none rounded-lg bg-teal-600 text-white cursor-pointer text-sm font-medium hover:bg-teal-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={() => handleSend(input)}
+                    disabled={!input.trim()}
                 >
                     Send
                 </button>
