@@ -18,5 +18,6 @@ export interface ChatInputProps {
     onInputChange: (value: string) => void;
     onSend: () => void;
     disabled?: boolean;
+    isLoading?: boolean;
     placeholder?: string;
 }

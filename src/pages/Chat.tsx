@@ -4,6 +4,7 @@ import { Message } from "../types/chat/GptMessage";
 import { extractPartNumbersFromText } from "../utils/productExtractor";
 import MessageBubble from "../components/chat/MessageBubble";
 import ChatInput from "../components/chat/ChatInput";
+import TypingIndicator from "../components/chat/TypingIndicator";
 
 const Chat: React.FC = () => {
     const defaultMessage: Message[] = [
@@ -16,6 +17,7 @@ const Chat: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>(defaultMessage);
     const [input, setInput] = useState<string>("");
     const [productData, setProductData] = useState<Map<number, any>>(new Map());
+    const [isLoading, setIsLoading] = useState<boolean>(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const isInitialMount = useRef(true);
@@ -25,16 +27,16 @@ const Chat: React.FC = () => {
     };
 
     useEffect(() => {
-        // Don't scroll on initial mount, only when new messages are added
+        // Don't scroll on initial mount, only when new messages are added or loading state changes
         if (isInitialMount.current) {
             isInitialMount.current = false;
             return;
         }
         scrollToBottom();
-    }, [messages]);
+    }, [messages, isLoading]);
 
     const handleSend = async (userInput: string): Promise<void> => {
-        if (userInput.trim() !== "") {
+        if (userInput.trim() !== "" && !isLoading) {
             // Capture current length so we can consistently associate product cards with the
             // assistant message that will be appended after the user message.
             // This avoids React.StrictMode double-invoking setState updaters causing duplicated cards.
@@ -47,35 +49,51 @@ const Chat: React.FC = () => {
                 { role: "user", content: userInput },
             ]);
             setInput("");
+            setIsLoading(true);
 
-            // Call API & set assistant message
-            const newMessage = await getAIMessage(userInput);
-            setMessages((prevMessages) => [...prevMessages, newMessage]);
+            try {
+                // Call API & set assistant message
+                const newMessage = await getAIMessage(userInput);
+                setMessages((prevMessages) => [...prevMessages, newMessage]);
 
-            // Extract part numbers from assistant response and fetch product data (deduped)
-            const partNumbers = Array.from(
-                new Set(extractPartNumbersFromText(newMessage.content))
-            );
-            if (partNumbers.length > 0) {
-                Promise.all(
-                    partNumbers.map((partNumber) => getProductByPartNumber(partNumber))
-                ).then((products) => {
-                    const validProducts = products
-                        .filter(Boolean)
-                        // De-dupe by part number to prevent repeated cards
-                        .filter(
-                            (p: any, idx: number, arr: any[]) =>
-                                idx === arr.findIndex((x) => x?.partNumber === p?.partNumber)
-                        );
+                // Extract part numbers from assistant response and fetch product data (deduped)
+                const partNumbers = Array.from(
+                    new Set(extractPartNumbersFromText(newMessage.content))
+                );
+                if (partNumbers.length > 0) {
+                    Promise.all(
+                        partNumbers.map((partNumber) => getProductByPartNumber(partNumber))
+                    ).then((products) => {
+                        const validProducts = products
+                            .filter(Boolean)
+                            // De-dupe by part number to prevent repeated cards
+                            .filter(
+                                (p: any, idx: number, arr: any[]) =>
+                                    idx === arr.findIndex((x) => x?.partNumber === p?.partNumber)
+                            );
 
-                    if (validProducts.length > 0) {
-                        setProductData((prev) => {
-                            const newMap = new Map(prev);
-                            newMap.set(assistantIndex, validProducts);
-                            return newMap;
-                        });
-                    }
-                });
+                        if (validProducts.length > 0) {
+                            setProductData((prev) => {
+                                const newMap = new Map(prev);
+                                newMap.set(assistantIndex, validProducts);
+                                return newMap;
+                            });
+                        }
+                    }).catch((error) => {
+                        console.error("Error fetching products:", error);
+                    });
+                }
+            } catch (error) {
+                console.error("Error sending message:", error);
+                setMessages((prevMessages) => [
+                    ...prevMessages,
+                    {
+                        role: "assistant",
+                        content: "Sorry, I encountered an error processing your request. Please try again.",
+                    },
+                ]);
+            } finally {
+                setIsLoading(false);
             }
         }
     };
@@ -90,12 +108,20 @@ const Chat: React.FC = () => {
                     productData={productData}
                 />
             ))}
+            {isLoading && (
+                <div className="flex flex-col max-w-[85%] my-2 items-start">
+                    <div className="py-2.5 px-3.5 my-1 rounded-lg text-sm font-normal leading-normal text-left shadow-sm bg-white text-gray-800 rounded-tl-sm border border-gray-200">
+                        <TypingIndicator />
+                    </div>
+                </div>
+            )}
             <div ref={messagesEndRef} />
             <ChatInput
                 input={input}
                 onInputChange={setInput}
                 onSend={() => handleSend(input)}
                 disabled={!input.trim()}
+                isLoading={isLoading}
             />
         </div>
     );
