@@ -138,6 +138,7 @@ const MessageContent: React.FC<MessageContentProps> = ({
                                         name={product.name || product.partNumber}
                                         url={product.url}
                                         description={product.description}
+                                        imageUrl={product.imageUrl}
                                     />
                                 </div>
                             </React.Fragment>

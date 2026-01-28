@@ -47,7 +47,19 @@ export const getProductByPartNumber = async (partNumber: string): Promise<any> =
         const response = await api.get(`/api/debug/products`);
         // server.js returns { count, products, sample }
         const products = response.data.products || response.data.allProducts || [];
-        return products.find((p: any) => p?.partNumber?.toLowerCase?.() === partNumber.toLowerCase());
+        const product = products.find((p: any) => p?.partNumber?.toLowerCase?.() === partNumber.toLowerCase());
+
+        if (product) {
+            console.log(`Found product ${partNumber}:`, {
+                name: product.name,
+                imageUrl: product.imageUrl || 'NO IMAGE URL',
+                url: product.url
+            });
+        } else {
+            console.log(`Product ${partNumber} not found in products array`);
+        }
+
+        return product;
     } catch (error) {
         console.error('Error fetching product:', error);
         return null;

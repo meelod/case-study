@@ -121,6 +121,7 @@ async function addProducts(products) {
                     price: product.price || 'Price available on website',
                     inStock: product.inStock !== undefined ? product.inStock : true,
                     url: product.url || '',
+                    imageUrl: product.imageUrl || '',
                     installation: product.installation || '',
                     troubleshooting: product.troubleshooting || ''
                 }
@@ -214,7 +215,9 @@ function getAllProducts() {
         name: item.metadata.name,
         category: item.metadata.category,
         brand: item.metadata.brand,
-        url: item.metadata.url
+        url: item.metadata.url,
+        imageUrl: item.metadata.imageUrl,
+        description: item.metadata.description
     }));
 }
 

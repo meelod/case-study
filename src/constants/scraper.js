@@ -12,15 +12,6 @@ const SCRAPE_CONFIG = {
 /**
  * Product selectors to try when scraping
  */
-const PRODUCT_SELECTORS = [
-    '.product-item',
-    '.part-item',
-    '[data-part-number]',
-    '.product-card',
-    '.part-card',
-    'article.product',
-    '.product-list-item'
-];
 
 /**
  * Name selectors to try when extracting product names
@@ -72,7 +63,6 @@ const SCRAPE_URLS = [
 
 module.exports = {
     SCRAPE_CONFIG,
-    PRODUCT_SELECTORS,
     NAME_SELECTORS,
     SKIP_PATTERNS,
     BRANDS,

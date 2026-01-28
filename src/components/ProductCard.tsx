@@ -6,11 +6,22 @@ interface ProductCardProps {
     name: string;
     url: string;
     description?: string;
+    imageUrl?: string;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ partNumber, name, url, description }) => {
-    const imageUrl = getProductImageUrl(partNumber);
+const ProductCard: React.FC<ProductCardProps> = ({ partNumber, name, url, description, imageUrl: propImageUrl }) => {
+    // Use provided imageUrl or fallback to constructed URL
+    const imageUrl = propImageUrl || getProductImageUrl(partNumber);
     const [imageFailed, setImageFailed] = useState(false);
+
+    // Debug logging
+    React.useEffect(() => {
+        if (propImageUrl) {
+            console.log(`ProductCard ${partNumber}: Using provided imageUrl: ${propImageUrl}`);
+        } else {
+            console.log(`ProductCard ${partNumber}: Using fallback constructed URL: ${imageUrl}`);
+        }
+    }, [partNumber, propImageUrl, imageUrl]);
 
     const fallbackSvgDataUri = useMemo(() => {
         const svg = encodeURIComponent(`
@@ -35,7 +46,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ partNumber, name, url, descri
                         onError={(e) => {
                             // Avoid external placeholder calls (some environments block DNS/network)
                             // and avoid infinite onError loops by switching state once.
-                            if (!imageFailed) setImageFailed(true);
+                            if (!imageFailed) {
+                                console.warn(`Image failed to load for ${partNumber}:`, imageUrl);
+                                setImageFailed(true);
+                            }
+                        }}
+                        onLoad={() => {
+                            console.log(`Image loaded successfully for ${partNumber}:`, imageUrl);
                         }}
                     />
                 </div>
