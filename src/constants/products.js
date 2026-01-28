@@ -4,15 +4,15 @@
  */
 
 const SAMPLE_PRODUCTS = [
-    {
-        id: "ps11752778",
-        partNumber: "PS11752778",
-        name: "Ice Maker Assembly",
-        description: "Complete ice maker assembly for Whirlpool refrigerators. Includes ice maker unit, water fill tube, and mounting hardware. Compatible with select Whirlpool refrigerator models.",
-        category: "Refrigerator - Ice Maker",
-        brand: "Whirlpool",
-        compatibleModels: ["WRX735SDHZ", "WRF540CWHZ", "WRF540CWHZ00", "WRS325FDAM"],
-        installation: `Installation Steps for PS11752778 (Ice Maker Assembly):
+   {
+      id: "ps11752778",
+      partNumber: "PS11752778",
+      name: "Ice Maker Assembly",
+      description: "Complete ice maker assembly for Whirlpool refrigerators. Includes ice maker unit, water fill tube, and mounting hardware. Compatible with select Whirlpool refrigerator models.",
+      category: "Refrigerator - Ice Maker",
+      brand: "Whirlpool",
+      compatibleModels: ["WRX735SDHZ", "WRF540CWHZ", "WRF540CWHZ00", "WRS325FDAM"],
+      installation: `Installation Steps for PS11752778 (Ice Maker Assembly):
 
 1. **Safety First**: Unplug the refrigerator from the electrical outlet.
 
@@ -38,24 +38,24 @@ const SAMPLE_PRODUCTS = [
 **Required Tools**: Phillips screwdriver, possibly a 1/4" nut driver
 
 **Note**: If your model uses a different mounting system, refer to your appliance's service manual.`,
-        troubleshooting: `If your ice maker isn't working, check:
+      troubleshooting: `If your ice maker isn't working, check:
 - Water supply line is connected and not frozen
 - Ice maker switch is in the "on" position
 - Water filter is not clogged (replace if over 6 months old)
 - Freezer temperature is at 0°F or below
 - No ice buildup blocking the mechanism`,
-        price: "$89.99",
-        inStock: true
-    },
-    {
-        id: "wdt780saem1_door_gasket",
-        partNumber: "WPW10206335",
-        name: "Dishwasher Door Gasket",
-        description: "Door gasket seal for Whirlpool dishwasher model WDT780SAEM1. This gasket prevents water leaks around the dishwasher door. Made of durable rubber material.",
-        category: "Dishwasher - Door Seal",
-        brand: "Whirlpool",
-        compatibleModels: ["WDT780SAEM1", "WDT780SAEM0", "WDT780SAEM2"],
-        installation: `Installation Steps for Door Gasket (WPW10206335):
+      price: "$89.99",
+      inStock: true
+   },
+   {
+      id: "wdt780saem1_door_gasket",
+      partNumber: "WPW10206335",
+      name: "Dishwasher Door Gasket",
+      description: "Door gasket seal for Whirlpool dishwasher model WDT780SAEM1. This gasket prevents water leaks around the dishwasher door. Made of durable rubber material.",
+      category: "Dishwasher - Door Seal",
+      brand: "Whirlpool",
+      compatibleModels: ["WDT780SAEM1", "WDT780SAEM0", "WDT780SAEM2"],
+      installation: `Installation Steps for Door Gasket (WPW10206335):
 
 1. **Safety First**: Turn off the dishwasher and disconnect power at the circuit breaker.
 
@@ -80,23 +80,23 @@ const SAMPLE_PRODUCTS = [
 **Required Tools**: None (installation by hand)
 
 **Note**: Make sure the gasket is not twisted or kinked during installation.`,
-        troubleshooting: `If your dishwasher is leaking from the door:
+      troubleshooting: `If your dishwasher is leaking from the door:
 - Check if the gasket is properly seated in the channel
 - Look for cracks or tears in the gasket
 - Ensure the door is closing properly and latching
 - Check that the dishwasher is level`,
-        price: "$24.99",
-        inStock: true
-    },
-    {
-        id: "refrigerator_water_filter",
-        partNumber: "PS11752778-FILTER",
-        name: "Refrigerator Water Filter",
-        description: "Replacement water filter for Whirlpool refrigerators. Reduces chlorine taste and odor, sediment, and other contaminants. Should be replaced every 6 months or 200 gallons.",
-        category: "Refrigerator - Water Filter",
-        brand: "Whirlpool",
-        compatibleModels: ["WRX735SDHZ", "WRF540CWHZ", "WRS325FDAM", "WRT318FZDM"],
-        installation: `Installation Steps for Water Filter:
+      price: "$24.99",
+      inStock: true
+   },
+   {
+      id: "refrigerator_water_filter",
+      partNumber: "PS11752778-FILTER",
+      name: "Refrigerator Water Filter",
+      description: "Replacement water filter for Whirlpool refrigerators. Reduces chlorine taste and odor, sediment, and other contaminants. Should be replaced every 6 months or 200 gallons.",
+      category: "Refrigerator - Water Filter",
+      brand: "Whirlpool",
+      compatibleModels: ["WRX735SDHZ", "WRF540CWHZ", "WRS325FDAM", "WRT318FZDM"],
+      installation: `Installation Steps for Water Filter:
 
 1. **Locate Filter**: The filter is typically located in the top right corner of the refrigerator compartment or in the grille at the bottom.
 
@@ -118,23 +118,23 @@ const SAMPLE_PRODUCTS = [
 **Required Tools**: None
 
 **Note**: The filter housing may have an arrow indicating rotation direction.`,
-        troubleshooting: `If water/ice tastes bad or flow is slow:
+      troubleshooting: `If water/ice tastes bad or flow is slow:
 - Check if filter needs replacement (6 months or 200 gallons)
 - Ensure filter is properly installed and seated
 - Flush the system after installation
 - Check water supply line for kinks or blockages`,
-        price: "$34.99",
-        inStock: true
-    },
-    {
-        id: "dishwasher_pump",
-        partNumber: "WPW10206336",
-        name: "Dishwasher Drain Pump",
-        description: "Drain pump assembly for Whirlpool dishwashers. Responsible for pumping water out of the dishwasher during drain cycles. If your dishwasher won't drain, this part may need replacement.",
-        category: "Dishwasher - Pump",
-        brand: "Whirlpool",
-        compatibleModels: ["WDT780SAEM1", "WDT780SAEM0", "WDF540PADM"],
-        installation: `Installation Steps for Drain Pump (WPW10206336):
+      price: "$34.99",
+      inStock: true
+   },
+   {
+      id: "dishwasher_pump",
+      partNumber: "WPW10206336",
+      name: "Dishwasher Drain Pump",
+      description: "Drain pump assembly for Whirlpool dishwashers. Responsible for pumping water out of the dishwasher during drain cycles. If your dishwasher won't drain, this part may need replacement.",
+      category: "Dishwasher - Pump",
+      brand: "Whirlpool",
+      compatibleModels: ["WDT780SAEM1", "WDT780SAEM0", "WDF540PADM"],
+      installation: `Installation Steps for Drain Pump (WPW10206336):
 
 1. **Safety First**: Disconnect power at the circuit breaker.
 
@@ -163,24 +163,24 @@ const SAMPLE_PRODUCTS = [
 **Required Tools**: Phillips screwdriver, pliers, possibly a 5/16" nut driver
 
 **Warning**: This is a more complex repair. If unsure, consider professional installation.`,
-        troubleshooting: `If dishwasher won't drain:
+      troubleshooting: `If dishwasher won't drain:
 - Check for clogs in the drain hose
 - Inspect the pump impeller for debris
 - Listen for pump motor running (if silent, pump may be faulty)
 - Check for error codes on the display
 - Ensure drain hose is not kinked or blocked`,
-        price: "$129.99",
-        inStock: true
-    },
-    {
-        id: "refrigerator_door_seal",
-        partNumber: "WPW10206337",
-        name: "Refrigerator Door Gasket",
-        description: "Door gasket seal for refrigerator doors. Prevents cold air from escaping and warm air from entering. If your refrigerator is running constantly or not cooling properly, a damaged gasket may be the cause.",
-        category: "Refrigerator - Door Seal",
-        brand: "Whirlpool",
-        compatibleModels: ["WRX735SDHZ", "WRF540CWHZ", "WRS325FDAM"],
-        installation: `Installation Steps for Door Gasket (WPW10206337):
+      price: "$129.99",
+      inStock: true
+   },
+   {
+      id: "refrigerator_door_seal",
+      partNumber: "WPW10206337",
+      name: "Refrigerator Door Gasket",
+      description: "Door gasket seal for refrigerator doors. Prevents cold air from escaping and warm air from entering. If your refrigerator is running constantly or not cooling properly, a damaged gasket may be the cause.",
+      category: "Refrigerator - Door Seal",
+      brand: "Whirlpool",
+      compatibleModels: ["WRX735SDHZ", "WRF540CWHZ", "WRS325FDAM"],
+      installation: `Installation Steps for Door Gasket (WPW10206337):
 
 1. **Safety First**: Unplug the refrigerator.
 
@@ -208,16 +208,16 @@ const SAMPLE_PRODUCTS = [
 **Required Tools**: None (installation by hand)
 
 **Note**: The gasket may need to "relax" for 24 hours after installation.`,
-        troubleshooting: `If refrigerator isn't cooling properly:
+      troubleshooting: `If refrigerator isn't cooling properly:
 - Check if gasket is sealing properly (dollar bill test)
 - Look for cracks, tears, or gaps in the gasket
 - Ensure door is closing properly and level
 - Check if gasket is warped or deformed`,
-        price: "$49.99",
-        inStock: true
-    }
+      price: "$49.99",
+      inStock: true
+   }
 ];
 
 module.exports = {
-    SAMPLE_PRODUCTS
+   SAMPLE_PRODUCTS
 };
