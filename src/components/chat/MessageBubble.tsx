@@ -14,8 +14,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, index, productDa
             {message.content && (
                 <div
                     className={`py-2.5 px-3.5 my-1 rounded-lg text-sm font-normal leading-normal text-left shadow-sm ${isUser
-                            ? "bg-teal-600 text-white rounded-tr-sm"
-                            : "bg-white text-gray-800 rounded-tl-sm border border-gray-200"
+                        ? "bg-teal-600 text-white rounded-tr-sm"
+                        : "bg-white text-gray-800 rounded-tl-sm border border-gray-200"
                         }`}
                 >
                     <MessageContent
