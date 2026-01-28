@@ -1,7 +1,5 @@
-// Simple in-memory vector store (no Docker/ChromaDB needed!)
-// Uses OpenAI embeddings + cosine similarity search
-
-const simpleVectorStore = require('./simpleVectorStore');
+// ChromaDB-backed vector store (required).
+const chromaVectorStore = require('./chromaVectorStore');
 const { scrapePartSelect, formatProductsForChromaDB } = require('./partSelectScraper');
 const { SAMPLE_PRODUCTS } = require('../constants/products');
 
@@ -11,10 +9,13 @@ async function initializeVectorStore(useScraper = true) {
         const forceRefresh = process.env.FORCE_REFRESH === 'true';
 
         // Check if already initialized (unless forcing refresh)
-        if (!forceRefresh && simpleVectorStore.getCount() > 0) {
-            console.log(`Vector store already initialized with ${simpleVectorStore.getCount()} products`);
-            console.log(`   To refresh with scraped data, set FORCE_REFRESH=true in .env or delete data/vector-store.json`);
-            return;
+        if (!forceRefresh) {
+            const count = await chromaVectorStore.getCount();
+            if (count > 0) {
+                console.log(`Vector store already initialized with ${count} products`);
+                console.log(`   Using ChromaDB collection: ${process.env.CHROMA_COLLECTION || 'partselect_products'}`);
+                return;
+            }
         }
 
         let products = [];
@@ -23,7 +24,7 @@ async function initializeVectorStore(useScraper = true) {
         if (useScraper && process.env.SCRAPE_PARTSELECT !== 'false') {
             try {
                 console.log('Scraping PartSelect website for product data...');
-                
+
                 const scrapedProducts = await scrapePartSelect();
 
                 if (scrapedProducts.length > 0) {
@@ -44,32 +45,32 @@ async function initializeVectorStore(useScraper = true) {
             products = SAMPLE_PRODUCTS;
         }
 
-        // Initialize simple vector store
-        await simpleVectorStore.initialize(products, forceRefresh);
-        console.log(`Vector store initialized with ${simpleVectorStore.getCount()} products`);
+        await chromaVectorStore.initialize(products, forceRefresh);
+        const newCount = await chromaVectorStore.getCount();
+        console.log(`Vector store initialized with ${newCount} products`);
     } catch (error) {
         console.error('ERROR: Error initializing vector store:', error);
-        console.warn('WARNING: Continuing without vector store - responses will be less specific');
+        throw error;
     }
 }
 
 // Search for relevant products
 async function searchProducts(query, limit = 3) {
-    try {
-        return await simpleVectorStore.searchProducts(query, limit);
-    } catch (error) {
-        console.error('ERROR: Error searching vector store:', error);
-        return [];
-    }
+    return await chromaVectorStore.searchProducts(query, limit);
 }
 
 // Get all products (for debugging)
-function getAllProducts() {
-    return simpleVectorStore.getAllProducts();
+async function getAllProducts() {
+    return await chromaVectorStore.getAllProducts();
+}
+
+async function getCount() {
+    return await chromaVectorStore.getCount();
 }
 
 module.exports = {
     initializeVectorStore,
     searchProducts,
-    getAllProducts
+    getAllProducts,
+    getCount
 };

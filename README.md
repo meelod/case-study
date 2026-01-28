@@ -1,70 +1,83 @@
-# Getting Started with Create React App
+# PartSelect Assistant (RAG Chatbot)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Full-stack chatbot for PartSelect parts:
+- **Frontend**: React (Create React App) + Tailwind
+- **Backend**: Node/Express (`server.js`)
+- **Retrieval (RAG)**: **ChromaDB (required)**
 
-## Available Scripts
+## Prerequisites
 
-In the project directory, you can run:
+- Node.js 18+
+- npm
+- **OpenAI API key** (for embeddings + chat)
+- Python 3.10+ (for running Chroma locally via the `chroma` CLI)
 
-### `npm start`
+## 1) Install dependencies
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```bash
+npm install
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 2) Create `.env`
 
-### `npm test`
+Create a `.env` in the project root:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash
+# Required (chat + embeddings)
+OPENAI_API_KEY=your_key_here
 
-### `npm run build`
+# Backend port (optional)
+PORT=3001
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+# Frontend -> backend base URL (optional; default is http://localhost:3001)
+REACT_APP_API_URL=http://localhost:3001
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+# Required: ChromaDB
+CHROMA_URL=http://localhost:8000
+CHROMA_COLLECTION=partselect_products
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+# Optional: scraping controls
+SCRAPE_PARTSELECT=true
+FORCE_REFRESH=false
+```
 
-### `npm run eject`
+## 3) Install + run Chroma locally
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Install Chroma (provides the `chroma` CLI):
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+python3 -m pip install chromadb
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## 4) Run Chroma + backend + frontend (one command)
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+`npm run dev` starts:
+- ChromaDB server on `http://localhost:8000`
+- backend on `http://localhost:3001`
+- frontend on `http://localhost:3000`
 
-## Learn More
+## 5) Run the app (frontend + backend)
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+This starts:
+- frontend on `http://localhost:3000`
+- backend on `http://localhost:3001`
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```bash
+npm run dev
+```
 
-### Code Splitting
+## Verify it’s working
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- **Health**: `GET http://localhost:3001/api/health`
+- **Vector store contents**: `GET http://localhost:3001/api/debug/products`
+- **Chat UI**: open `http://localhost:3000`
 
-### Analyzing the Bundle Size
+## Notes
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+- **Embeddings**: embeddings are computed with **OpenAI** in the Node backend and passed to ChromaDB.
 
-### Making a Progressive Web App
+## Useful docs in this repo
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- `CHROMA_SETUP.md`
+- `SCRAPING_SETUP.md`
+- `TEST_PROMPTS.md`

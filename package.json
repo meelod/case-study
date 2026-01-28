@@ -38,7 +38,8 @@
   "scripts": {
     "start": "PORT=3000 react-scripts start",
     "server": "node server.js",
-    "dev": "concurrently \"npm run server\" \"npm start\"",
+    "chroma": "chroma run --host localhost --port 8000 --path ./data/chroma",
+    "dev": "concurrently \"npm run chroma\" \"npm run server\" \"npm start\"",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

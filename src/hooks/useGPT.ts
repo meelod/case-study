@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { Message } from "../types/chat/GPTMessage";
 import { GPTReturn } from "../types/chat/GPTReturn";
 import { getAIMessage, getProductByPartNumber } from "../api/api";
@@ -16,7 +16,6 @@ export const useGPT = (initialMessages?: Message[]): GPTReturn => {
     const [productData, setProductData] = useState<Map<number, any>>(new Map());
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
-    const assistantIndexRef = useRef<number>(0);
 
     const sendMessage = useCallback(async (userInput: string): Promise<void> => {
         if (userInput.trim() === "") {
@@ -27,15 +26,15 @@ export const useGPT = (initialMessages?: Message[]): GPTReturn => {
         setIsLoading(true);
 
         // Set user message and capture assistant index
+        let assistantIndex = 0;
         setMessages((prevMessages) => {
-            assistantIndexRef.current = prevMessages.length + 1; // Index where assistant message will be
+            assistantIndex = prevMessages.length + 1; // Index where assistant message will be
             return [...prevMessages, { role: "user", content: userInput }];
         });
 
         try {
             // Call API & set assistant message
             const newMessage = await getAIMessage(userInput);
-            const assistantIndex = assistantIndexRef.current;
 
             setMessages((prevMessages) => [...prevMessages, newMessage]);
 

@@ -140,13 +140,18 @@ app.get('/api/health', (req, res) => {
 // Debug endpoint to see what products are in the vector store
 app.get('/api/debug/products', (req, res) => {
     try {
-        const { getAllProducts, getCount } = require('./src/services/simpleVectorStore');
-        const products = getAllProducts();
-        res.json({
-            count: getCount(),
-            products: products,
-            sample: products.slice(0, 10) // Show first 10
-        });
+        const { getAllProducts, getCount } = require('./src/services/vectorStore');
+        Promise.all([getAllProducts(), getCount()])
+            .then(([products, count]) => {
+                res.json({
+                    count,
+                    products,
+                    sample: products.slice(0, 10),
+                });
+            })
+            .catch((error) => {
+                res.status(500).json({ error: error.message });
+            });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -160,12 +165,13 @@ app.listen(PORT, async () => {
     }
 
     // Initialize vector store (non-blocking)
-    // Uses simple in-memory vector store (no Docker needed!)
+    // Requires ChromaDB
     console.log('Initializing vector store for RAG...');
-    console.log('   Using local in-memory vector store (no Docker required)');
+    console.log('   Using ChromaDB vector store');
+    console.log('   Make sure ChromaDB is running on CHROMA_URL (default http://localhost:8000)');
     console.log('   This will scrape PartSelect website for product data...');
     initializeVectorStore(true).catch(err => {
-        console.warn('WARNING: Vector store initialization failed. RAG features disabled.');
-        console.warn('   Error:', err.message);
+        console.error('ERROR: Vector store initialization failed. The app cannot run without ChromaDB.');
+        console.error('   Error:', err.message);
     });
 });
