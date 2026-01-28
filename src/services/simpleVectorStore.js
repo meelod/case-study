@@ -231,7 +231,6 @@ function getCount() {
 module.exports = {
     initialize,
     searchProducts,
-    addProducts,
     getCount,
     getAllProducts
 };

@@ -1,6 +1,5 @@
 const puppeteer = require('puppeteer');
 const cheerio = require('cheerio');
-const axios = require('axios');
 const {
     SCRAPE_CONFIG,
     NAME_SELECTORS,
@@ -295,7 +294,6 @@ function scrapeFromContainers($, category, seenPartNumbers) {
     console.log(`Found ${containers.length} product containers using .nf__part selector`);
 
     let processedCount = 0;
-    let skippedNoLinks = 0;
     let skippedNoPartNumber = 0;
     let skippedDuplicate = 0;
     let skippedInvalidName = 0;
@@ -426,71 +424,6 @@ async function scrapeCategoryPage(url, category) {
         if (browser) {
             await browser.close();
         }
-    }
-}
-
-/**
- * Scrapes product detail page for more information
- */
-async function scrapeProductDetail(url) {
-    try {
-        const response = await axios.get(url, {
-            timeout: 10000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-            }
-        });
-
-        const $ = cheerio.load(response.data);
-
-        // Extract image URL from product detail page
-        let imageUrl = null;
-        const imageSelectors = [
-            '.product-image img',
-            '.main-product-image img',
-            '#product-image img',
-            '.product-photo img',
-            'img[alt*="product"]',
-            'img[src*="/PS"]'
-        ];
-
-        for (const selector of imageSelectors) {
-            const $img = $(selector).first();
-            if ($img.length > 0) {
-                const imgSrc = $img.attr('src') || $img.attr('data-src') || $img.attr('data-lazy-src') || $img.attr('data-original');
-                if (imgSrc) {
-                    imageUrl = normalizeUrl(imgSrc);
-                    if (imageUrl && imageUrl.includes('/PS')) {
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Extract additional details
-        const installation = $('.installation, .install-instructions, #installation').text().trim();
-        const troubleshooting = $('.troubleshooting, .troubleshoot, #troubleshooting').text().trim();
-        const compatibleModels = [];
-
-        $('.compatible-models li, .model-list li, [data-model]').each((i, elem) => {
-            const model = $(elem).text().trim();
-            if (model) compatibleModels.push(model);
-        });
-
-        return {
-            installation: installation || '',
-            troubleshooting: troubleshooting || '',
-            compatibleModels: compatibleModels.length > 0 ? compatibleModels : [],
-            imageUrl: imageUrl || null
-        };
-    } catch (error) {
-        console.warn(`WARNING: Could not scrape product detail for ${url}:`, error.message);
-        return {
-            installation: '',
-            troubleshooting: '',
-            compatibleModels: [],
-            imageUrl: null
-        };
     }
 }
 
@@ -640,7 +573,5 @@ function extractBrandFromName(name) {
 
 module.exports = {
     scrapePartSelect,
-    scrapeCategoryPage,
-    formatProductsForChromaDB,
-    extractBrandFromName
+    formatProductsForChromaDB
 };

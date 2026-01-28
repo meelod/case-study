@@ -46,7 +46,7 @@ export const getProductByPartNumber = async (partNumber: string): Promise<any> =
         const api = ChatAPI();
         const response = await api.get(`/api/debug/products`);
         // server.js returns { count, products, sample }
-        const products = response.data.products || response.data.allProducts || [];
+        const products = response.data.products || [];
         const product = products.find((p: any) => p?.partNumber?.toLowerCase?.() === partNumber.toLowerCase());
 
         if (product) {
