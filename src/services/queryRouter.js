@@ -72,11 +72,20 @@ async function regexLookup(partNumbers, modelNumbers) {
     try {
         // Search with part numbers for exact match
         for (const partNumber of partNumbers) {
-            const products = await searchProducts(partNumber, 5);
-            // Filter for exact part number match
-            const exactMatches = products.filter(p =>
-                p.partNumber.toLowerCase() === partNumber.toLowerCase()
-            );
+            const products = await searchProducts(partNumber, 10); // Get more results to check replacements
+            // Filter for exact part number match OR replacement part match
+            const exactMatches = products.filter(p => {
+                const partLower = partNumber.toLowerCase();
+                // Exact part number match
+                if (p.partNumber.toLowerCase() === partLower) {
+                    return true;
+                }
+                // Check if this product replaces the searched part number
+                if (p.replacementParts && Array.isArray(p.replacementParts)) {
+                    return p.replacementParts.some(rp => rp.toLowerCase() === partLower);
+                }
+                return false;
+            });
             results.push(...exactMatches);
         }
 
@@ -85,7 +94,7 @@ async function regexLookup(partNumbers, modelNumbers) {
             const products = await searchProducts(modelNumber, 5);
             // Filter for models that include this model number
             const compatibleProducts = products.filter(p =>
-                p.compatibleModels.some(m =>
+                p.compatibleModels && p.compatibleModels.some(m =>
                     m.toLowerCase().includes(modelNumber.toLowerCase()) ||
                     modelNumber.toLowerCase().includes(m.toLowerCase())
                 )
@@ -196,6 +205,9 @@ function formatContextForLLM(routerResults, userQuery) {
         }
         context += `Category: ${product.category}\n`;
         context += `Brand: ${product.brand}\n`;
+        if (product.replacementParts && product.replacementParts.length > 0) {
+            context += `Replaces Part Numbers: ${product.replacementParts.join(', ')}\n`;
+        }
         if (product.compatibleModels && product.compatibleModels.length > 0) {
             context += `Compatible Models: ${product.compatibleModels.join(', ')}\n`;
         }

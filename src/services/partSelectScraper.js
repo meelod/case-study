@@ -166,36 +166,69 @@ function extractImageUrl($container, partNumber, productUrl) {
  * Extracts part number and URL from container links
  */
 function extractPartNumberAndUrl($container, $) {
-    const psLinks = $container.find('a[href*="/PS"]');
-    if (psLinks.length === 0) {
-        return { partNumber: null, url: null };
-    }
-
     let partNumber = null;
     let productUrl = null;
 
-    // Iterate through links using cheerio's eq method
-    for (let i = 0; i < psLinks.length; i++) {
-        const $link = psLinks.eq(i);
-        const href = $link.attr('href');
-        if (!href) continue;
+    // Method 1: Try to find links with PS part numbers
+    const psLinks = $container.find('a[href*="/PS"]');
+    if (psLinks.length > 0) {
+        for (let i = 0; i < psLinks.length; i++) {
+            const $link = psLinks.eq(i);
+            const href = $link.attr('href');
+            if (!href) continue;
 
-        // Skip anchor links but extract part number
-        if (href.includes('#')) {
-            const match = href.match(/PS\d{5,}/);
-            if (match && !partNumber) {
-                partNumber = match[0];
-                productUrl = href.split('#')[0];
+            // Skip anchor links but extract part number
+            if (href.includes('#')) {
+                const match = href.match(/PS\d{5,}/);
+                if (match && !partNumber) {
+                    partNumber = match[0];
+                    productUrl = href.split('#')[0];
+                }
+                continue;
             }
-            continue;
+
+            // Regular product page link
+            const match = href.match(/PS\d{5,}/);
+            if (match) {
+                partNumber = match[0];
+                productUrl = normalizeUrl(href);
+                break; // Found a good link, stop searching
+            }
+        }
+    }
+
+    // Method 2: If no link found, try to extract part number from container text/data attributes
+    if (!partNumber) {
+        // Check data attributes
+        const dataPartNumber = $container.attr('data-part-number') ||
+            $container.attr('data-partnumber') ||
+            $container.attr('data-part');
+        if (dataPartNumber) {
+            const match = dataPartNumber.match(/PS?\d{5,}/i);
+            if (match) {
+                partNumber = match[0].toUpperCase().replace(/^P(?!S)/, 'PS');
+            }
         }
 
-        // Regular product page link
-        const match = href.match(/PS\d{5,}/);
-        if (match) {
-            partNumber = match[0];
-            productUrl = normalizeUrl(href);
-            break; // Found a good link, stop searching
+        // Check container text for part numbers
+        if (!partNumber) {
+            const containerText = $container.text();
+            const match = containerText.match(/PS\d{5,}/);
+            if (match) {
+                partNumber = match[0];
+                // Try to find URL in any link within container
+                const anyLink = $container.find('a').first();
+                if (anyLink.length > 0) {
+                    const href = anyLink.attr('href');
+                    if (href && href.includes(partNumber)) {
+                        productUrl = normalizeUrl(href);
+                    } else {
+                        productUrl = `https://www.partselect.com/${partNumber}.htm`;
+                    }
+                } else {
+                    productUrl = `https://www.partselect.com/${partNumber}.htm`;
+                }
+            }
         }
     }
 
@@ -238,6 +271,7 @@ function extractProductFromContainer($container, $, category, seenPartNumbers) {
             description,
             url: productUrl || `https://www.partselect.com/PS${partNumber}.htm`,
             imageUrl,
+            replacementParts: [], // Will be populated when scraping detail pages
             scraped: true
         },
         skipReason: null
@@ -245,17 +279,50 @@ function extractProductFromContainer($container, $, category, seenPartNumbers) {
 }
 
 /**
- * Sets up Puppeteer browser and page
+ * Sets up Puppeteer browser and page with stealth settings to avoid bot detection
  */
 async function setupBrowser() {
     const browser = await puppeteer.launch({
         headless: SCRAPE_CONFIG.headless,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-features=IsolateOrigins,site-per-process'
+        ]
     });
 
     const page = await browser.newPage();
+
+    // Set realistic viewport
     await page.setViewport({ width: 1920, height: 1080 });
+
+    // Set realistic user agent
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+    // Remove webdriver property
+    await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'webdriver', {
+            get: () => undefined
+        });
+    });
+
+    // Add Chrome object
+    await page.evaluateOnNewDocument(() => {
+        window.chrome = {
+            runtime: {}
+        };
+    });
+
+    // Override permissions
+    await page.evaluateOnNewDocument(() => {
+        const originalQuery = window.navigator.permissions.query;
+        window.navigator.permissions.query = (parameters) => (
+            parameters.name === 'notifications' ?
+                Promise.resolve({ state: Notification.permission }) :
+                originalQuery(parameters)
+        );
+    });
 
     return { browser, page };
 }
@@ -265,15 +332,154 @@ async function setupBrowser() {
  */
 async function loadPageContent(page, url) {
     console.log(`Loading page: ${url}`);
-    await page.goto(url, {
-        waitUntil: 'networkidle2',
-        timeout: SCRAPE_CONFIG.timeout
-    });
+    try {
+        // Navigate with realistic timing
+        await page.goto(url, {
+            waitUntil: 'domcontentloaded',
+            timeout: SCRAPE_CONFIG.timeout
+        });
 
-    // Wait for products to load
-    await new Promise(resolve => setTimeout(resolve, 3000));
+        // Wait a bit for JavaScript to execute (minimal delay)
+        await new Promise(resolve => setTimeout(resolve, 0));
 
-    return await page.content();
+        // Scroll to trigger lazy loading
+        await page.evaluate(() => {
+            window.scrollTo(0, document.body.scrollHeight / 2);
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        await page.evaluate(() => {
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // Check if we got blocked
+        const pageTitle = await page.title();
+        if (pageTitle.toLowerCase().includes('access denied') ||
+            pageTitle.toLowerCase().includes('blocked') ||
+            pageTitle.toLowerCase().includes('forbidden')) {
+            console.log(`   WARNING: Page appears to be blocked (title: "${pageTitle}")`);
+            return null; // Return null to signal blocking
+        }
+
+        // Try to wait for specific selectors if they exist
+        try {
+            await page.waitForSelector('.nf__part, .product-item, [data-part-number]', { timeout: 3000 });
+        } catch (e) {
+            // Selectors not found, continue anyway
+        }
+
+        return await page.content();
+    } catch (error) {
+        console.error(`   Error loading page ${url}:`, error.message);
+        return await page.content(); // Return whatever we have
+    }
+}
+
+/**
+ * Scrapes a product detail page to extract replacement parts and additional metadata
+ * @param {Page} page - Puppeteer page instance
+ * @param {string} productUrl - URL of the product detail page
+ * @returns {Object|null} - Object with replacementParts array and other metadata, or null if failed
+ */
+async function scrapeProductDetailPage(page, productUrl) {
+    if (!productUrl || !productUrl.includes('partselect.com')) {
+        return null;
+    }
+
+    try {
+        const content = await loadPageContent(page, productUrl);
+        if (!content) {
+            return null; // Page was blocked
+        }
+
+        const $ = cheerio.load(content);
+        const replacementParts = [];
+
+        // Pattern 1: Look for "replaces these:" or "replaces:" text
+        const pageText = $('body').text();
+
+        // Common patterns:
+        // "replaces these: AP6010443, 67004278, 67005380"
+        // "replaces: AP6010443, 67004278"
+        // "This part works with... replaces these: AP6010443, 67004278"
+        const replacePatterns = [
+            /replaces\s+these?:\s*([A-Z0-9,\s]+)/i,
+            /replaces:\s*([A-Z0-9,\s]+)/i,
+            /replacement\s+part\s+numbers?:\s*([A-Z0-9,\s]+)/i,
+            /also\s+replaces:\s*([A-Z0-9,\s]+)/i,
+        ];
+
+        for (const pattern of replacePatterns) {
+            const match = pageText.match(pattern);
+            if (match && match[1]) {
+                // Extract part numbers from the matched text
+                const partNumbers = match[1]
+                    .split(',')
+                    .map(p => p.trim())
+                    .filter(p => {
+                        // Match part numbers: alphanumeric codes like AP6010443, 67004278, PS123456, WP67005380
+                        return /^[A-Z]{0,3}\d{5,}$/i.test(p);
+                    });
+                replacementParts.push(...partNumbers);
+            }
+        }
+
+        // Pattern 2: Look in specific HTML elements that might contain replacement info
+        const replacementSelectors = [
+            '.replacement-parts',
+            '.replaces',
+            '[class*="replacement"]',
+            '[class*="replaces"]',
+            '.part-compatibility',
+            '.compatible-parts'
+        ];
+
+        for (const selector of replacementSelectors) {
+            const $element = $(selector);
+            if ($element.length > 0) {
+                const text = $element.text();
+                // Extract part numbers from this element
+                const matches = text.matchAll(/\b([A-Z]{0,3}\d{5,})\b/gi);
+                for (const match of matches) {
+                    const partNum = match[1].toUpperCase();
+                    if (!replacementParts.includes(partNum)) {
+                        replacementParts.push(partNum);
+                    }
+                }
+            }
+        }
+
+        // Pattern 3: Look for structured data or lists with part numbers
+        $('ul, ol, dl').each((i, elem) => {
+            const $list = $(elem);
+            const listText = $list.text().toLowerCase();
+            if (listText.includes('replace') || listText.includes('compatible')) {
+                const text = $list.text();
+                const matches = text.matchAll(/\b([A-Z]{0,3}\d{5,})\b/gi);
+                for (const match of matches) {
+                    const partNum = match[1].toUpperCase();
+                    if (!replacementParts.includes(partNum)) {
+                        replacementParts.push(partNum);
+                    }
+                }
+            }
+        });
+
+        // Remove duplicates and return
+        const uniqueReplacementParts = [...new Set(replacementParts)];
+
+        if (uniqueReplacementParts.length > 0) {
+            console.log(`   Found ${uniqueReplacementParts.length} replacement parts: ${uniqueReplacementParts.slice(0, 5).join(', ')}${uniqueReplacementParts.length > 5 ? '...' : ''}`);
+        }
+
+        return {
+            replacementParts: uniqueReplacementParts
+        };
+    } catch (error) {
+        console.error(`   Error scraping detail page ${productUrl}:`, error.message);
+        return null;
+    }
 }
 
 // ============================================================================
@@ -288,6 +494,24 @@ function scrapeFromContainers($, category, seenPartNumbers) {
     const containers = $('.nf__part, [class*="nf__part"]');
 
     if (containers.length === 0) {
+        // Try alternative selectors for brand pages
+        const altContainers = $('.product-item, .part-item, [data-part-number], .product, article.product');
+        if (altContainers.length > 0) {
+            console.log(`Found ${altContainers.length} product containers using alternative selectors`);
+            // Process alternative containers
+            altContainers.each((i, container) => {
+                if (products.length >= SCRAPE_CONFIG.maxProductsPerCategory) {
+                    return false;
+                }
+                const $container = $(container);
+                const result = extractProductFromContainer($container, $, category, seenPartNumbers);
+                if (result.product) {
+                    products.push(result.product);
+                }
+            });
+            return products;
+        }
+        console.log(`   No product containers found with .nf__part or alternative selectors`);
         return products;
     }
 
@@ -322,7 +546,8 @@ function scrapeFromContainers($, category, seenPartNumbers) {
 
         products.push(result.product);
 
-        if (products.length <= 10) {
+        // Log first 20 products instead of just 10
+        if (products.length <= 20) {
             console.log(`   Extracted: ${result.product.partNumber} - ${result.product.name.substring(0, 50)}`);
         }
     });
@@ -386,15 +611,61 @@ function scrapeFromLinks($, category, seenPartNumbers) {
 }
 
 /**
+ * Finds brand-specific pages from a category page
+ * Example: Finds links like "Admiral Refrigerator Parts", "Amana Refrigerator Parts", etc.
+ */
+function findBrandPages($, baseCategory) {
+    const brandPages = [];
+    const seenUrls = new Set();
+
+    // Look for brand links - they typically follow patterns like:
+    // - "Admiral Refrigerator Parts" -> /Admiral-Refrigerator-Parts.htm
+    // - Links in brand sections or navigation
+    $('a[href*="-Parts.htm"]').each((i, elem) => {
+        const $link = $(elem);
+        const href = $link.attr('href');
+        const text = $link.text().trim();
+
+        if (!href || seenUrls.has(href)) return;
+
+        // Match brand-specific part pages (e.g., Admiral-Refrigerator-Parts.htm)
+        // But exclude main category pages (Refrigerator-Parts.htm, Dishwasher-Parts.htm)
+        const brandMatch = href.match(/\/([A-Za-z]+)-([A-Za-z]+)-Parts\.htm$/);
+        if (brandMatch && brandMatch[1] !== 'Refrigerator' && brandMatch[1] !== 'Dishwasher') {
+            const brand = brandMatch[1];
+            const categoryType = brandMatch[2]; // "Refrigerator" or "Dishwasher"
+
+            // Only include if it matches our base category
+            if (baseCategory.includes(categoryType)) {
+                const fullUrl = normalizeUrl(href);
+                brandPages.push({
+                    url: fullUrl,
+                    brand: brand,
+                    category: `${brand} ${categoryType} Parts`
+                });
+                seenUrls.add(href);
+            }
+        }
+    });
+
+    return brandPages;
+}
+
+/**
  * Scrapes a single PartSelect category page
  */
-async function scrapeCategoryPage(url, category) {
+async function scrapeCategoryPage(url, category, browser = null, page = null) {
     console.log(`Scraping ${category} from: ${url}`);
 
-    let browser;
+    let shouldCloseBrowser = false;
     try {
-        const { browser: b, page } = await setupBrowser();
-        browser = b;
+        // Use provided browser/page or create new ones
+        if (!browser || !page) {
+            const setup = await setupBrowser();
+            browser = setup.browser;
+            page = setup.page;
+            shouldCloseBrowser = true;
+        }
 
         const content = await loadPageContent(page, url);
         const $ = cheerio.load(content);
@@ -415,52 +686,232 @@ async function scrapeCategoryPage(url, category) {
         }
 
         console.log(`Scraped ${products.length} products from ${category}`);
-        return products;
+        return { products, browser, page, shouldCloseBrowser };
 
     } catch (error) {
         console.error(`ERROR: Error scraping ${category}:`, error.message);
-        return [];
-    } finally {
-        if (browser) {
+        if (shouldCloseBrowser && browser) {
             await browser.close();
         }
+        return { products: [], browser, page, shouldCloseBrowser };
     }
 }
 
 /**
- * Main scraper function - scrapes both categories
+ * Main scraper function - scrapes both categories and brand pages
  */
 async function scrapePartSelect() {
     console.log('Starting PartSelect scraper...');
 
     const allProducts = [];
     const seenPartNumbers = new Set(); // Global deduplication
+    const allBrandPages = [];
 
-    for (const { url, category } of SCRAPE_URLS) {
-        try {
-            console.log(`\nScraping: ${url}`);
-            const products = await scrapeCategoryPage(url, category);
+    // Step 1: Scrape main category pages and discover brand pages
+    let sharedBrowser = null;
+    let sharedPage = null;
 
-            // Deduplicate globally
-            const newProducts = products.filter(p => {
-                if (seenPartNumbers.has(p.partNumber)) {
-                    return false;
+    try {
+        // Setup shared browser for efficiency
+        const setup = await setupBrowser();
+        sharedBrowser = setup.browser;
+        sharedPage = setup.page;
+
+        for (const { url, category } of SCRAPE_URLS) {
+            try {
+                console.log(`\nScraping: ${url}`);
+
+                // Load page content once
+                const content = await loadPageContent(sharedPage, url);
+
+                // Check if page was blocked
+                if (!content) {
+                    console.log(`   SKIPPED: Page blocked by anti-bot protection`);
+                    continue; // Skip this category page
                 }
-                seenPartNumbers.add(p.partNumber);
-                return true;
-            });
 
-            allProducts.push(...newProducts);
-            console.log(`   Added ${newProducts.length} new products (${products.length - newProducts.length} duplicates skipped)`);
+                const $ = cheerio.load(content);
 
-            // Rate limiting
-            await new Promise(resolve => setTimeout(resolve, 2000));
-        } catch (error) {
-            console.error(`ERROR: Error scraping ${url}:`, error.message);
+                // Scrape products from this page
+                const initialLinkCount = $('a[href*="/PS"]').length;
+                console.log(`   Found ${initialLinkCount} product links`);
+
+                const seenPartNumbers = new Set();
+                let products = [];
+
+                // Primary method: scrape from .nf__part containers
+                products = scrapeFromContainers($, category, seenPartNumbers);
+
+                // Fallback: scrape from links if no products found
+                if (products.length === 0) {
+                    console.log('WARNING: No products found with containers, trying alternative approach...');
+                    products = scrapeFromLinks($, category, seenPartNumbers);
+                }
+
+                console.log(`Scraped ${products.length} products from ${category}`);
+
+                // Deduplicate globally
+                const newProducts = products.filter(p => {
+                    if (seenPartNumbers.has(p.partNumber)) {
+                        return false;
+                    }
+                    seenPartNumbers.add(p.partNumber);
+                    return true;
+                });
+
+                allProducts.push(...newProducts);
+                console.log(`   Added ${newProducts.length} new products (${products.length - newProducts.length} duplicates skipped)`);
+
+                // Find brand pages from this category page
+                const brandPages = findBrandPages($, category);
+
+                if (brandPages.length > 0) {
+                    console.log(`   Found ${brandPages.length} brand-specific pages`);
+                    allBrandPages.push(...brandPages);
+                }
+
+                // Clear cookies to reset session
+                const cookies = await sharedPage.cookies();
+                if (cookies.length > 0) {
+                    await sharedPage.deleteCookie(...cookies);
+                }
+
+                // Minimal delay between pages
+                await new Promise(resolve => setTimeout(resolve, 0));
+            } catch (error) {
+                console.error(`ERROR: Error scraping ${url}:`, error.message);
+            }
+        }
+
+        // Step 2: Scrape all discovered brand pages
+        console.log(`\nScraping ${allBrandPages.length} brand-specific pages...`);
+
+        for (const brandPage of allBrandPages) {
+            try {
+                console.log(`\nScraping brand page: ${brandPage.url}`);
+
+                // Load page content
+                const content = await loadPageContent(sharedPage, brandPage.url);
+
+                // Check if page was blocked
+                if (!content) {
+                    console.log(`   SKIPPED: Page blocked by anti-bot protection`);
+                    continue; // Skip this brand page
+                }
+
+                const $ = cheerio.load(content);
+
+                // Debug: Check if page loaded correctly
+                const pageTitle = $('title').text().trim();
+                console.log(`   Page title: ${pageTitle.substring(0, 60)}...`);
+
+                // Check if still blocked after loading
+                if (pageTitle.toLowerCase().includes('access denied') ||
+                    pageTitle.toLowerCase().includes('blocked') ||
+                    pageTitle.toLowerCase().includes('forbidden')) {
+                    console.log(`   SKIPPED: Page blocked (detected from title)`);
+                    continue;
+                }
+
+                const initialLinkCount = $('a[href*="/PS"]').length;
+                console.log(`   Found ${initialLinkCount} product links`);
+
+                // Debug: Check what containers exist
+                const nfPartCount = $('.nf__part, [class*="nf__part"]').length;
+                const productItemCount = $('.product-item, .part-item').length;
+                const articleCount = $('article.product, article[class*="product"]').length;
+                const allLinks = $('a').length;
+                console.log(`   Debug - Containers: .nf__part=${nfPartCount}, .product-item=${productItemCount}, article=${articleCount}, total links=${allLinks}`);
+
+                const localSeenPartNumbers = new Set();
+                let products = [];
+
+                // Primary method: scrape from .nf__part containers
+                products = scrapeFromContainers($, brandPage.category, localSeenPartNumbers);
+
+                // Fallback: scrape from links if no products found
+                if (products.length === 0 && initialLinkCount > 0) {
+                    console.log(`   Trying fallback: scraping from links...`);
+                    products = scrapeFromLinks($, brandPage.category, localSeenPartNumbers);
+                } else if (products.length === 0 && initialLinkCount === 0) {
+                    console.log(`   WARNING: No product links found on brand page - page might be empty or use different structure`);
+                }
+
+                console.log(`Scraped ${products.length} products from ${brandPage.category}`);
+
+                // Deduplicate globally
+                const newProducts = products.filter(p => {
+                    if (seenPartNumbers.has(p.partNumber)) {
+                        return false;
+                    }
+                    seenPartNumbers.add(p.partNumber);
+                    return true;
+                });
+
+                allProducts.push(...newProducts);
+                console.log(`   Added ${newProducts.length} new products from ${brandPage.brand} (${products.length - newProducts.length} duplicates skipped)`);
+
+                // Clear cookies between brand pages
+                const cookies = await sharedPage.cookies();
+                if (cookies.length > 0) {
+                    await sharedPage.deleteCookie(...cookies);
+                }
+
+                // Minimal delay between brand pages
+                await new Promise(resolve => setTimeout(resolve, 0));
+            } catch (error) {
+                console.error(`ERROR: Error scraping brand page ${brandPage.url}:`, error.message);
+            }
+        }
+
+        // Step 3: Enrich products with detail page data (replacement parts)
+        if (SCRAPE_CONFIG.scrapeDetailPages && allProducts.length > 0) {
+            console.log(`\nEnriching products with detail page data...`);
+            const maxDetailPages = Math.min(allProducts.length, SCRAPE_CONFIG.maxDetailPagesPerBatch);
+            const productsToEnrich = allProducts.slice(0, maxDetailPages);
+            console.log(`   Scraping detail pages for ${productsToEnrich.length} products...`);
+
+            let enrichedCount = 0;
+            for (let i = 0; i < productsToEnrich.length; i++) {
+                const product = productsToEnrich[i];
+                if (!product.url) {
+                    continue;
+                }
+
+                try {
+                    const detailData = await scrapeProductDetailPage(sharedPage, product.url);
+                    if (detailData && detailData.replacementParts && detailData.replacementParts.length > 0) {
+                        product.replacementParts = detailData.replacementParts;
+                        enrichedCount++;
+                    }
+
+                    // Clear cookies periodically to avoid detection
+                    if (i % 10 === 0 && i > 0) {
+                        const cookies = await sharedPage.cookies();
+                        if (cookies.length > 0) {
+                            await sharedPage.deleteCookie(...cookies);
+                        }
+                    }
+
+                    // Small delay to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (error) {
+                    console.error(`   Error enriching product ${product.partNumber}:`, error.message);
+                }
+            }
+
+            console.log(`   Enriched ${enrichedCount} products with replacement part data`);
+        }
+
+    } finally {
+        // Close shared browser
+        if (sharedBrowser) {
+            await sharedBrowser.close();
         }
     }
 
-    console.log(`Total products scraped: ${allProducts.length}`);
+    console.log(`\nTotal products scraped: ${allProducts.length}`);
+    console.log(`Total brand pages scraped: ${allBrandPages.length}`);
     return allProducts;
 }
 
@@ -547,6 +998,7 @@ function formatProductsForChromaDB(scrapedProducts) {
             category: product.category,
             brand: product.brand || extractBrandFromName(product.name) || 'Various',
             compatibleModels: product.compatibleModels || [],
+            replacementParts: product.replacementParts || [], // Parts this product replaces
             installation: product.installation || `Installation instructions available on PartSelect website. Visit ${product.url || 'PartSelect.com'} for detailed installation steps.`,
             troubleshooting: product.troubleshooting || `For troubleshooting assistance, visit the product page at ${product.url || 'PartSelect.com'} or contact PartSelect support.`,
             price: product.price || 'Price available on website',

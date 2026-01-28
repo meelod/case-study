@@ -57,7 +57,11 @@ function getOpenAIClient() {
 }
 
 function productToText(product) {
-    return `${product.name} (${product.partNumber}). ${product.description}. Category: ${product.category}. Brand: ${product.brand || 'Various'}. Compatible with: ${(product.compatibleModels || []).join(', ') || 'See product page'}. ${product.installation || ''}. ${product.troubleshooting || ''}`;
+    const replacementParts = product.replacementParts || [];
+    const replacementText = replacementParts.length > 0
+        ? ` Replaces part numbers: ${replacementParts.join(', ')}.`
+        : '';
+    return `${product.name} (${product.partNumber}). ${product.description}. Category: ${product.category}. Brand: ${product.brand || 'Various'}. Compatible with: ${(product.compatibleModels || []).join(', ') || 'See product page'}.${replacementText} ${product.installation || ''}. ${product.troubleshooting || ''}`;
 }
 
 async function embed(text) {
@@ -83,6 +87,7 @@ async function ensureCollection() {
 
 function buildRecord(product) {
     const text = productToText(product);
+    const replacementParts = product.replacementParts || [];
     return {
         id: product.id,
         document: text,
@@ -96,6 +101,9 @@ function buildRecord(product) {
             compatibleModels: Array.isArray(product.compatibleModels)
                 ? product.compatibleModels.join(', ')
                 : (product.compatibleModels || ''),
+            replacementParts: Array.isArray(replacementParts)
+                ? replacementParts.join(', ')
+                : (replacementParts || ''),
             price: product.price || 'Price available on website',
             inStock: product.inStock !== undefined ? product.inStock : true,
             url: product.url || '',
@@ -117,19 +125,49 @@ async function initialize(products, forceRefresh = false) {
     await chroma.version();
 
     if (forceRefresh) {
+        console.log(`FORCE_REFRESH enabled - deleting existing collection "${COLLECTION_NAME}"...`);
         try {
+            // Delete the collection completely
             await chroma.deleteCollection({ name: COLLECTION_NAME });
+            console.log(`   Collection deleted successfully`);
         } catch (e) {
-            // ignore if it doesn't exist
+            // Collection might not exist, that's fine
+            if (e.message && !e.message.includes('does not exist')) {
+                console.warn(`   Warning deleting collection:`, e.message);
+            }
         }
+        // Clear the cached collection reference
         collection = null;
+        // Wait a moment for deletion to complete
+        await new Promise(resolve => setTimeout(resolve, 500));
     }
 
+    // Get or create collection (will create new one if forceRefresh deleted it)
     const col = await ensureCollection();
     const existingCount = await col.count();
+
+    // Only skip if NOT forcing refresh AND there are existing records
     if (!forceRefresh && existingCount > 0) {
         console.log(`Chroma collection "${COLLECTION_NAME}" already has ${existingCount} records`);
+        console.log(`   To force refresh, set FORCE_REFRESH=true in your environment`);
         return;
+    }
+
+    // If forceRefresh is true, ensure collection is empty before adding
+    if (forceRefresh && existingCount > 0) {
+        console.log(`WARNING: Collection still has ${existingCount} records after deletion`);
+        console.log(`   Attempting to clear remaining records...`);
+        try {
+            // Get all IDs and delete them
+            const allData = await col.get();
+            if (allData.ids && allData.ids.length > 0) {
+                await col.delete({ ids: allData.ids });
+                console.log(`   Cleared ${allData.ids.length} remaining records`);
+            }
+        } catch (e) {
+            console.warn(`   Could not clear records (will proceed anyway):`, e.message);
+            // Continue anyway - upsert will overwrite existing records
+        }
     }
 
     console.log(`Adding ${products.length} products to Chroma collection "${COLLECTION_NAME}"...`);
@@ -176,7 +214,8 @@ async function searchProducts(query, limit = 3) {
         description: m.description,
         category: m.category,
         brand: m.brand,
-        compatibleModels: m.compatibleModels || [],
+        compatibleModels: m.compatibleModels ? (typeof m.compatibleModels === 'string' ? m.compatibleModels.split(', ').filter(Boolean) : m.compatibleModels) : [],
+        replacementParts: m.replacementParts ? (typeof m.replacementParts === 'string' ? m.replacementParts.split(', ').filter(Boolean) : m.replacementParts) : [],
         price: m.price,
         inStock: m.inStock,
         url: m.url,
@@ -209,8 +248,13 @@ async function getAllProducts(limit = 1000) {
 }
 
 async function getCount() {
-    const col = await ensureCollection();
-    return await col.count();
+    try {
+        const col = await ensureCollection();
+        return await col.count();
+    } catch (error) {
+        // Collection doesn't exist yet or error accessing it
+        return 0;
+    }
 }
 
 module.exports = {

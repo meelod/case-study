@@ -10,18 +10,32 @@ async function initializeVectorStore(useScraper = true) {
 
         // Check if already initialized (unless forcing refresh)
         if (!forceRefresh) {
-            const count = await chromaVectorStore.getCount();
-            if (count > 0) {
-                console.log(`Vector store already initialized with ${count} products`);
-                console.log(`   Using ChromaDB collection: ${process.env.CHROMA_COLLECTION || 'partselect_products'}`);
-                return;
+            try {
+                console.log('Checking if ChromaDB already has data...');
+                const count = await chromaVectorStore.getCount();
+                console.log(`   ChromaDB collection count: ${count}`);
+                if (count > 0) {
+                    console.log(`✓ Vector store already initialized with ${count} products`);
+                    console.log(`   Using ChromaDB collection: ${process.env.CHROMA_COLLECTION || 'partselect_products'}`);
+                    console.log(`   Skipping scraping. To force re-scraping, set FORCE_REFRESH=true in your environment`);
+                    return; // Exit early - skip scraping and initialization
+                } else {
+                    console.log(`   Collection is empty (${count} products), will scrape new data`);
+                }
+            } catch (error) {
+                // Collection might not exist yet, that's fine - continue with scraping
+                console.log(`   Collection check failed: ${error.message}`);
+                console.log('   Will create collection and scrape new data');
             }
+        } else {
+            console.log('FORCE_REFRESH enabled - will delete existing data and re-scrape');
         }
 
         let products = [];
 
         // Try to scrape PartSelect website
         if (useScraper && process.env.SCRAPE_PARTSELECT !== 'false') {
+
             try {
                 console.log('Scraping PartSelect website for product data...');
 

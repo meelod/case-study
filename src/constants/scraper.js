@@ -7,6 +7,8 @@ const SCRAPE_CONFIG = {
     timeout: 30000, // 30 seconds
     headless: true,
     waitForSelector: '.product-item, .part-item, [data-part-number]', // Common selectors
+    scrapeDetailPages: true, // Whether to scrape individual product detail pages for replacement parts
+    maxDetailPagesPerBatch: 50, // Limit detail page scraping to avoid rate limiting
 };
 
 /**
