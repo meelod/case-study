@@ -1,4 +1,4 @@
-import { Message } from "./GptMessage";
+import { Message } from "./GPTMessage";
 
 export interface MessageBubbleProps {
     message: Message;

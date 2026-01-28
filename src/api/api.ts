@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from "axios";
-import { ChatResponse, ChatRequest } from "../types/chat/GptMessage";
+import { ChatResponse, ChatRequest } from "../types/chat/GPTMessage";
 import { getConversationId } from "../utils/chat";
 
 export function ChatAPI(): AxiosInstance {

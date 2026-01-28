@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { Message } from "../types/chat/GptMessage";
+import { Message } from "../types/chat/GPTMessage";
 import { GPTReturn } from "../types/chat/GPTReturn";
 import { getAIMessage, getProductByPartNumber } from "../api/api";
 import { extractPartNumbersFromText } from "../utils/productExtractor";
