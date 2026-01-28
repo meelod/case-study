@@ -9,8 +9,16 @@
     font-family: "Inter", sans-serif;
   }
 
+  html,
   body {
     @apply bg-gray-50 text-gray-900;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #root {
+    height: 100vh;
+    overflow: hidden;
   }
 }
 
@@ -25,10 +33,14 @@
 
   .prose ul,
   .prose ol {
-    @apply my-2 ml-4;
+    @apply my-1 ml-4;
   }
 
   .prose li {
+    @apply my-0.5;
+  }
+
+  .prose p {
     @apply my-1;
   }
 
@@ -55,10 +67,14 @@
 
   .prose-invert ul,
   .prose-invert ol {
-    @apply my-2 ml-4 text-white;
+    @apply my-1 ml-4 text-white;
   }
 
   .prose-invert li {
+    @apply my-0.5 text-white;
+  }
+
+  .prose-invert p {
     @apply my-1 text-white;
   }
 }

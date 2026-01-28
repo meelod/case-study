@@ -1,9 +1,9 @@
 import React from "react";
-import ChatWindow from "./components/ChatWindow";
+import Chat from "./pages/Chat";
 
 const App: React.FC = () => {
     return (
-        <div className="bg-gray-50 min-h-screen">
+        <div className="bg-gray-50 h-screen flex flex-col overflow-hidden">
             <div className="fixed top-0 left-0 w-full bg-white shadow-md border-b border-gray-200 flex items-center justify-between px-6 h-[60px] z-50">
                 <div className="flex items-center">
                     <h1 className="text-xl font-bold text-teal-600">PartSelect</h1>
@@ -13,7 +13,7 @@ const App: React.FC = () => {
                     Refrigerator & Dishwasher Parts
                 </div>
             </div>
-            <ChatWindow />
+            <Chat />
         </div>
     );
 };

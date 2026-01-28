@@ -40,3 +40,16 @@ export const getAIMessage = async (userQuery: string): Promise<ChatResponse> => 
         };
     }
 };
+
+export const getProductByPartNumber = async (partNumber: string): Promise<any> => {
+    try {
+        const api = ChatAPI();
+        const response = await api.get(`/api/debug/products`);
+        // server.js returns { count, products, sample }
+        const products = response.data.products || response.data.allProducts || [];
+        return products.find((p: any) => p?.partNumber?.toLowerCase?.() === partNumber.toLowerCase());
+    } catch (error) {
+        console.error('Error fetching product:', error);
+        return null;
+    }
+};
