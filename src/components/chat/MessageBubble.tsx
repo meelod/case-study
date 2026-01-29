@@ -7,14 +7,14 @@ const MessageBubble = ({ message, index, productData }: MessageBubbleProps) => {
 
     return (
         <div
-            className={`flex flex-col max-w-[90%] my-1.5 ${isUser ? "self-end items-end ml-auto" : "items-start"
+            className={`flex flex-col max-w-[88%] my-2 ${isUser ? "self-end items-end ml-auto" : "items-start"
                 }`}
         >
             {message.content && (
                 <div
-                    className={`py-2 px-3 my-0.5 rounded-lg text-sm font-normal leading-normal text-left shadow-sm ${isUser
-                        ? "bg-teal-600 text-white rounded-tr-sm"
-                        : "bg-white text-gray-800 rounded-tl-sm border border-gray-200"
+                    className={`py-3 px-4 rounded-2xl text-sm leading-relaxed shadow-sm ${isUser
+                            ? "bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-br-md"
+                            : "bg-white text-slate-700 rounded-bl-md border border-slate-200"
                         }`}
                 >
                     <MessageContent

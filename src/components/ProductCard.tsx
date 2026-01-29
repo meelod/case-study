@@ -3,69 +3,62 @@ import { ProductCardProps } from "../types/product/ProductComponents";
 import { getProductImageUrl } from "../utils/productExtractor";
 
 const ProductCard = ({ partNumber, name, url, description, imageUrl: propImageUrl }: ProductCardProps) => {
-    // Use provided imageUrl or fallback to constructed URL
     const imageUrl = propImageUrl || getProductImageUrl(partNumber);
     const [imageFailed, setImageFailed] = useState(false);
 
-    // Debug logging
-    React.useEffect(() => {
-        if (propImageUrl) {
-            console.log(`ProductCard ${partNumber}: Using provided imageUrl: ${propImageUrl}`);
-        } else {
-            console.log(`ProductCard ${partNumber}: Using fallback constructed URL: ${imageUrl}`);
-        }
-    }, [partNumber, propImageUrl, imageUrl]);
-
-    const fallbackSvgDataUri = useMemo(() => {
+    const fallbackSvg = useMemo(() => {
         const svg = encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
-  <rect width="96" height="96" fill="#f3f4f6"/>
-  <path d="M26 62h44" stroke="#9ca3af" stroke-width="4" stroke-linecap="round"/>
-  <path d="M32 44h32" stroke="#9ca3af" stroke-width="4" stroke-linecap="round"/>
-  <circle cx="48" cy="34" r="10" fill="#e5e7eb" stroke="#9ca3af" stroke-width="2"/>
-  <text x="48" y="84" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="10" fill="#6b7280">No image</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
+  <rect width="80" height="80" fill="#f0fdfa"/>
+  <rect x="16" y="16" width="48" height="48" rx="6" fill="#ccfbf1" stroke="#5eead4" stroke-width="1"/>
+  <path d="M28 50 L40 38 L52 50" stroke="#14b8a6" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="32" cy="32" r="4" fill="#14b8a6"/>
 </svg>`);
         return `data:image/svg+xml;charset=utf-8,${svg}`;
     }, []);
 
     return (
-        <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+        <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-xl overflow-hidden bg-gradient-to-br from-white to-slate-50 border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-400 transition-all duration-200 group"
+        >
             <div className="flex">
-                <div className="w-24 h-24 flex-shrink-0 bg-gray-100 flex items-center justify-center">
+                {/* Image */}
+                <div className="w-24 h-24 flex-shrink-0 bg-gradient-to-br from-teal-50 to-slate-100 flex items-center justify-center p-2">
                     <img
-                        src={imageFailed ? fallbackSvgDataUri : imageUrl}
+                        src={imageFailed ? fallbackSvg : imageUrl}
                         alt={name}
-                        className="w-full h-full object-contain"
-                        onError={(e) => {
-                            // Avoid external placeholder calls (some environments block DNS/network)
-                            // and avoid infinite onError loops by switching state once.
-                            if (!imageFailed) {
-                                console.warn(`Image failed to load for ${partNumber}:`, imageUrl);
-                                setImageFailed(true);
-                            }
-                        }}
-                        onLoad={() => {
-                            console.log(`Image loaded successfully for ${partNumber}:`, imageUrl);
-                        }}
+                        className="w-full h-full object-contain rounded"
+                        onError={() => !imageFailed && setImageFailed(true)}
                     />
                 </div>
-                <div className="flex-1 p-3">
-                    <div className="font-semibold text-sm text-gray-900">{name}</div>
-                    <div className="text-xs text-teal-600 font-medium mt-1">Part #: {partNumber}</div>
+
+                {/* Content */}
+                <div className="flex-1 p-3 min-w-0 flex flex-col justify-between">
+                    <div>
+                        <h4 className="font-semibold text-sm text-slate-800 line-clamp-2 group-hover:text-teal-700 transition-colors leading-tight">
+                            {name}
+                        </h4>
+                        <p className="text-xs text-teal-600 font-semibold mt-1 tracking-wide">
+                            {partNumber}
+                        </p>
+                    </div>
                     {description && (
-                        <div className="text-xs text-gray-600 mt-1 line-clamp-2">{description}</div>
+                        <p className="text-xs text-slate-500 mt-1.5 line-clamp-1 leading-relaxed">
+                            {description}
+                        </p>
                     )}
-                    <a
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block mt-2 text-xs text-teal-600 hover:text-teal-700 font-medium underline"
-                    >
-                        View on PartSelect →
-                    </a>
+                    <div className="flex items-center mt-2 text-xs font-medium text-teal-600 group-hover:text-teal-700">
+                        <span>View on PartSelect</span>
+                        <svg className="w-3.5 h-3.5 ml-1 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                        </svg>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
     );
 };
 

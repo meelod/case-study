@@ -5,7 +5,3 @@ export interface ProductCardProps {
     description?: string;
     imageUrl?: string;
 }
-
-export interface ProductDividerProps {
-    label?: string;
-}
