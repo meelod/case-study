@@ -144,11 +144,24 @@ async function initialize(products, forceRefresh = false) {
         return;
     }
 
-    console.log(`Adding ${products.length} products to Chroma...`);
+    // Deduplicate products by ID (same product may appear on multiple brand pages)
+    const seen = new Set();
+    const uniqueProducts = products.filter(p => {
+        const id = p.id || p.partNumber?.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+    });
+
+    if (uniqueProducts.length < products.length) {
+        console.log(`Deduplicated: ${products.length} -> ${uniqueProducts.length} products (${products.length - uniqueProducts.length} duplicates removed)`);
+    }
+
+    console.log(`Adding ${uniqueProducts.length} products to Chroma...`);
 
     const batchSize = 50;
-    for (let i = 0; i < products.length; i += batchSize) {
-        const batch = products.slice(i, i + batchSize);
+    for (let i = 0; i < uniqueProducts.length; i += batchSize) {
+        const batch = uniqueProducts.slice(i, i + batchSize);
         const records = batch.map(buildRecord);
         const embeddings = await Promise.all(records.map(r => embed(r.document)));
 
@@ -159,7 +172,7 @@ async function initialize(products, forceRefresh = false) {
             embeddings,
         });
 
-        console.log(`   Upserted ${Math.min(i + batchSize, products.length)}/${products.length}`);
+        console.log(`   Upserted ${Math.min(i + batchSize, uniqueProducts.length)}/${uniqueProducts.length}`);
     }
 
     const finalCount = await col.count();
