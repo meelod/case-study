@@ -102,6 +102,42 @@ npm test -- --coverage --watchAll=false
 ## CI/CD
 
 GitHub Actions runs on every push/PR to `main`:
-- ✅ Linting
-- ✅ Unit tests
-- ✅ Build verification
+- Linting
+- Unit tests
+- Build verification
+
+## Dependencies
+
+### Core
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `react` | 18.2.0 | Frontend framework |
+| `express` | 5.2.1 | Backend server |
+| `openai` | 6.16.0 | Chat completions + embeddings |
+| `chromadb` | 3.2.2 | Vector database client |
+
+### Backend
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `puppeteer` | 24.36.1 | Web scraping (headless Chrome) |
+| `cheerio` | 1.2.0 | HTML parsing |
+| `cors` | 2.8.6 | Cross-origin requests |
+| `dotenv` | 17.2.3 | Environment variables |
+
+### Frontend
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `axios` | 1.13.4 | HTTP client |
+| `marked` | 9.1.2 | Markdown rendering |
+| `typescript` | 5.9.3 | Type safety |
+| `tailwindcss` | 3.4.1 | Styling |
+
+### Testing
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `@testing-library/react` | 13.4.0 | React component testing |
+| `@testing-library/jest-dom` | 5.17.0 | DOM matchers |
