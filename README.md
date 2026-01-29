@@ -88,3 +88,20 @@ npm run dev
 | `CHROMA_URL` | Yes | ChromaDB server URL |
 | `SCRAPE_TEST_MODE` | No | `true` = 15 products, `false` = ~700 products |
 | `FORCE_REFRESH` | No | `true` = re-scrape and rebuild vector store |
+
+## Testing
+
+```bash
+# Run all tests
+npm test
+
+# Run with coverage
+npm test -- --coverage --watchAll=false
+```
+
+## CI/CD
+
+GitHub Actions runs on every push/PR to `main`:
+- ✅ Linting
+- ✅ Unit tests
+- ✅ Build verification
