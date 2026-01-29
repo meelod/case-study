@@ -39,9 +39,10 @@ CHROMA_COLLECTION=partselect_products
 # Optional: scraping controls
 SCRAPE_PARTSELECT=true
 FORCE_REFRESH=false
+SCRAPE_TEST_MODE=false  # Set to true for quick testing (3 brands, 5 products each)
 ```
 
-## 3) Install + run Chroma locally
+## 3) Install Chroma
 
 Install Chroma (provides the `chroma` CLI):
 
@@ -49,22 +50,22 @@ Install Chroma (provides the `chroma` CLI):
 python3 -m pip install chromadb
 ```
 
-## 4) Run Chroma + backend + frontend (one command)
+## 4) Run the app
 
-`npm run dev` starts:
-- ChromaDB server on `http://localhost:8000`
-- backend on `http://localhost:3001`
-- frontend on `http://localhost:3000`
+**Terminal 1 - Start ChromaDB:**
+```bash
+npm run chroma
+```
 
-## 5) Run the app (frontend + backend)
-
-This starts:
-- frontend on `http://localhost:3000`
-- backend on `http://localhost:3001`
-
+**Terminal 2 - Start backend + frontend:**
 ```bash
 npm run dev
 ```
+
+This starts:
+- ChromaDB server on `http://localhost:8000` (Terminal 1)
+- Backend on `http://localhost:3001` (Terminal 2)
+- Frontend on `http://localhost:3000` (Terminal 2)
 
 ## Verify it’s working
 

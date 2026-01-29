@@ -61,7 +61,28 @@ function productToText(product) {
     const replacementText = replacementParts.length > 0
         ? ` Replaces part numbers: ${replacementParts.join(', ')}.`
         : '';
-    return `${product.name} (${product.partNumber}). ${product.description}. Category: ${product.category}. Brand: ${product.brand || 'Various'}. Compatible with: ${(product.compatibleModels || []).join(', ') || 'See product page'}.${replacementText} ${product.installation || ''}. ${product.troubleshooting || ''}`;
+
+    const manufacturerText = product.manufacturerPartNumber
+        ? ` Manufacturer Part Number: ${product.manufacturerPartNumber}.`
+        : '';
+
+    const manufacturedByText = product.manufacturedBy
+        ? ` Manufactured by ${product.manufacturedBy}${product.manufacturedFor && product.manufacturedFor.length > 0 ? ` for ${product.manufacturedFor.join(', ')}` : ''}.`
+        : '';
+
+    const symptomsText = product.symptoms && product.symptoms.length > 0
+        ? ` Fixes symptoms: ${product.symptoms.join(', ')}.`
+        : '';
+
+    const productTypeText = product.productType
+        ? ` Product type: ${product.productType}.`
+        : '';
+
+    const compatibleModelsText = product.compatibleModels && product.compatibleModels.length > 0
+        ? ` Compatible models: ${product.compatibleModels.map(m => typeof m === 'object' ? `${m.brand} ${m.modelNumber}` : m).join(', ')}.`
+        : '';
+
+    return `${product.name} (${product.partNumber}).${manufacturerText}${manufacturedByText}${productTypeText} ${product.description}. Category: ${product.category}. Brand: ${product.brand || 'Various'}.${compatibleModelsText}${replacementText}${symptomsText} ${product.installation || ''}. ${product.troubleshooting || ''}`;
 }
 
 async function embed(text) {
@@ -88,6 +109,10 @@ async function ensureCollection() {
 function buildRecord(product) {
     const text = productToText(product);
     const replacementParts = product.replacementParts || [];
+    const compatibleModels = product.compatibleModels || [];
+    const symptoms = product.symptoms || [];
+    const manufacturedFor = product.manufacturedFor || [];
+
     return {
         id: product.id,
         document: text,
@@ -97,10 +122,15 @@ function buildRecord(product) {
             description: product.description || `${product.name} for ${product.category}`,
             category: product.category,
             brand: product.brand || 'Various',
+            manufacturerPartNumber: product.manufacturerPartNumber || '',
+            manufacturedBy: product.manufacturedBy || '',
+            manufacturedFor: Array.isArray(manufacturedFor) ? manufacturedFor.join(', ') : (manufacturedFor || ''),
+            symptoms: Array.isArray(symptoms) ? symptoms.join(', ') : (symptoms || ''),
+            productType: product.productType || '',
             // Chroma metadata must be primitives/null; store arrays as a string.
-            compatibleModels: Array.isArray(product.compatibleModels)
-                ? product.compatibleModels.join(', ')
-                : (product.compatibleModels || ''),
+            compatibleModels: Array.isArray(compatibleModels)
+                ? compatibleModels.map(m => typeof m === 'object' ? `${m.brand} ${m.modelNumber}` : m).join(', ')
+                : (compatibleModels || ''),
             replacementParts: Array.isArray(replacementParts)
                 ? replacementParts.join(', ')
                 : (replacementParts || ''),
@@ -214,11 +244,17 @@ async function searchProducts(query, limit = 3) {
         description: m.description,
         category: m.category,
         brand: m.brand,
+        manufacturerPartNumber: m.manufacturerPartNumber || '',
+        manufacturedBy: m.manufacturedBy || '',
+        manufacturedFor: m.manufacturedFor ? (typeof m.manufacturedFor === 'string' ? m.manufacturedFor.split(', ').filter(Boolean) : m.manufacturedFor) : [],
+        symptoms: m.symptoms ? (typeof m.symptoms === 'string' ? m.symptoms.split(', ').filter(Boolean) : m.symptoms) : [],
+        productType: m.productType || '',
         compatibleModels: m.compatibleModels ? (typeof m.compatibleModels === 'string' ? m.compatibleModels.split(', ').filter(Boolean) : m.compatibleModels) : [],
         replacementParts: m.replacementParts ? (typeof m.replacementParts === 'string' ? m.replacementParts.split(', ').filter(Boolean) : m.replacementParts) : [],
         price: m.price,
         inStock: m.inStock,
         url: m.url,
+        imageUrl: m.imageUrl || '',
         installation: m.installation,
         troubleshooting: m.troubleshooting,
         relevance: typeof distances[idx] === 'number' ? Math.max(0, 1 - distances[idx]) : undefined,
@@ -241,10 +277,157 @@ async function getAllProducts(limit = 1000) {
         name: m.name,
         category: m.category,
         brand: m.brand,
+        manufacturerPartNumber: m.manufacturerPartNumber || '',
+        manufacturedBy: m.manufacturedBy || '',
+        manufacturedFor: m.manufacturedFor
+            ? (typeof m.manufacturedFor === 'string'
+                ? m.manufacturedFor.split(', ').filter(Boolean)
+                : m.manufacturedFor)
+            : [],
+        symptoms: m.symptoms
+            ? (typeof m.symptoms === 'string'
+                ? m.symptoms.split(', ').filter(Boolean)
+                : m.symptoms)
+            : [],
+        productType: m.productType || '',
         url: m.url,
         imageUrl: m.imageUrl,
         description: m.description,
+        compatibleModels: m.compatibleModels
+            ? (typeof m.compatibleModels === 'string'
+                ? m.compatibleModels.split(', ').filter(Boolean)
+                : m.compatibleModels)
+            : [],
+        replacementParts: m.replacementParts
+            ? (typeof m.replacementParts === 'string'
+                ? m.replacementParts.split(', ').filter(Boolean)
+                : m.replacementParts)
+            : [],
     })).filter(p => p && p.partNumber);
+}
+
+/**
+ * Search for products by replacement part number
+ * This searches all products' replacementParts metadata field
+ */
+async function searchByReplacementPart(replacementPartNumber, brandFilter = null) {
+    const col = await ensureCollection();
+    const partLower = replacementPartNumber.toLowerCase();
+
+    // Get all products and filter by replacement parts
+    const res = await col.get({
+        limit: 10000, // Get all products
+        include: ['metadatas'],
+    });
+
+    const metadatas = res.metadatas || [];
+    const ids = res.ids || [];
+
+    const matches = metadatas
+        .map((m, idx) => {
+            const replacementParts = m.replacementParts
+                ? (typeof m.replacementParts === 'string'
+                    ? m.replacementParts.split(', ').filter(Boolean)
+                    : m.replacementParts)
+                : [];
+
+            // Check if this product replaces the searched part number
+            const matchesReplacement = replacementParts.some(rp => rp.toLowerCase() === partLower);
+
+            if (!matchesReplacement) return null;
+
+            // Filter by brand if specified
+            if (brandFilter && m.brand) {
+                const productBrand = m.brand.toLowerCase();
+                if (!productBrand.includes(brandFilter.toLowerCase())) {
+                    return null;
+                }
+            }
+
+            return {
+                id: ids[idx],
+                partNumber: m.partNumber,
+                name: m.name,
+                description: m.description,
+                category: m.category,
+                brand: m.brand,
+                manufacturerPartNumber: m.manufacturerPartNumber || '',
+                manufacturedBy: m.manufacturedBy || '',
+                manufacturedFor: m.manufacturedFor ? (typeof m.manufacturedFor === 'string' ? m.manufacturedFor.split(', ').filter(Boolean) : m.manufacturedFor) : [],
+                symptoms: m.symptoms ? (typeof m.symptoms === 'string' ? m.symptoms.split(', ').filter(Boolean) : m.symptoms) : [],
+                productType: m.productType || '',
+                compatibleModels: m.compatibleModels ? (typeof m.compatibleModels === 'string' ? m.compatibleModels.split(', ').filter(Boolean) : m.compatibleModels) : [],
+                replacementParts: replacementParts,
+                price: m.price,
+                inStock: m.inStock,
+                url: m.url,
+                imageUrl: m.imageUrl || '',
+                installation: m.installation,
+                troubleshooting: m.troubleshooting,
+            };
+        })
+        .filter(p => p !== null && p.partNumber && p.name);
+
+    return matches;
+}
+
+/**
+ * Search for products by compatible model number
+ * This searches all products' compatibleModels metadata field
+ */
+async function searchByCompatibleModel(modelNumber, brandFilter = null) {
+    const col = await ensureCollection();
+    const modelUpper = modelNumber.toUpperCase();
+
+    // Get all products and filter by compatible models
+    const res = await col.get({
+        limit: 10000, // Get all products
+        include: ['metadatas'],
+    });
+
+    const metadatas = res.metadatas || [];
+    const ids = res.ids || [];
+
+    const matches = metadatas
+        .map((m, idx) => {
+            const compatibleModels = m.compatibleModels
+                ? (typeof m.compatibleModels === 'string'
+                    ? m.compatibleModels.split(', ').filter(Boolean)
+                    : m.compatibleModels)
+                : [];
+
+            // Check if this product is compatible with the searched model number
+            const matchesModel = compatibleModels.some(cm => cm.toUpperCase() === modelUpper);
+
+            if (!matchesModel) return null;
+
+            // Filter by brand if specified
+            if (brandFilter && m.brand) {
+                const productBrand = m.brand.toLowerCase();
+                if (!productBrand.includes(brandFilter.toLowerCase())) {
+                    return null;
+                }
+            }
+
+            return {
+                id: ids[idx],
+                partNumber: m.partNumber,
+                name: m.name,
+                description: m.description,
+                category: m.category,
+                brand: m.brand,
+                compatibleModels: compatibleModels,
+                replacementParts: m.replacementParts ? (typeof m.replacementParts === 'string' ? m.replacementParts.split(', ').filter(Boolean) : m.replacementParts) : [],
+                price: m.price,
+                inStock: m.inStock,
+                url: m.url,
+                installation: m.installation,
+                troubleshooting: m.troubleshooting,
+            };
+        })
+        .filter(p => p !== null && p.partNumber && p.name);
+
+    return matches;
 }
 
 async function getCount() {
@@ -257,10 +440,63 @@ async function getCount() {
     }
 }
 
+/**
+ * FAST: Direct lookup by part number using ChromaDB's where clause
+ * This is O(1) lookup, not semantic search
+ */
+async function getProductByPartNumber(partNumber) {
+    const col = await ensureCollection();
+    const partLower = partNumber.toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+    try {
+        // Direct lookup by ID (which is derived from part number)
+        const res = await col.get({
+            ids: [partLower],
+            include: ['metadatas'],
+        });
+
+        if (res.ids && res.ids.length > 0 && res.metadatas && res.metadatas[0]) {
+            const m = res.metadatas[0];
+            return {
+                id: res.ids[0],
+                partNumber: m.partNumber,
+                name: m.name,
+                category: m.category,
+                brand: m.brand,
+                manufacturerPartNumber: m.manufacturerPartNumber || '',
+                manufacturedBy: m.manufacturedBy || '',
+                manufacturedFor: m.manufacturedFor
+                    ? (typeof m.manufacturedFor === 'string' ? m.manufacturedFor.split(', ').filter(Boolean) : m.manufacturedFor)
+                    : [],
+                symptoms: m.symptoms
+                    ? (typeof m.symptoms === 'string' ? m.symptoms.split(', ').filter(Boolean) : m.symptoms)
+                    : [],
+                productType: m.productType || '',
+                url: m.url,
+                imageUrl: m.imageUrl,
+                description: m.description,
+                compatibleModels: m.compatibleModels
+                    ? (typeof m.compatibleModels === 'string' ? m.compatibleModels.split(', ').filter(Boolean) : m.compatibleModels)
+                    : [],
+                replacementParts: m.replacementParts
+                    ? (typeof m.replacementParts === 'string' ? m.replacementParts.split(', ').filter(Boolean) : m.replacementParts)
+                    : [],
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error('Error in getProductByPartNumber:', error.message);
+        return null;
+    }
+}
+
 module.exports = {
     initialize,
     searchProducts,
     getAllProducts,
     getCount,
+    searchByReplacementPart,
+    searchByCompatibleModel,
+    getProductByPartNumber,
 };
 

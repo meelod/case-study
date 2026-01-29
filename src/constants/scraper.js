@@ -4,11 +4,11 @@
 
 const SCRAPE_CONFIG = {
     maxProductsPerCategory: 500, // Limit to avoid overwhelming the system
-    timeout: 30000, // 30 seconds
+    timeout: 20000, // Reduced from 30s to 20s for faster scraping
     headless: true,
     waitForSelector: '.product-item, .part-item, [data-part-number]', // Common selectors
     scrapeDetailPages: true, // Whether to scrape individual product detail pages for replacement parts
-    maxDetailPagesPerBatch: 50, // Limit detail page scraping to avoid rate limiting
+    maxDetailPagesPerBatch: 100, // Increased from 50 to scrape more products per run
 };
 
 /**

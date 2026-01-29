@@ -21,6 +21,7 @@ function extractPartNumbers(query) {
             }
             return null;
         }).filter(Boolean); // Remove nulls
+    // Part numbers are typically 5-10 digits after the prefix
     }
     return [];
 }

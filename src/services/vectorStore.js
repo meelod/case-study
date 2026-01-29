@@ -37,9 +37,10 @@ async function initializeVectorStore(useScraper = true) {
         if (useScraper && process.env.SCRAPE_PARTSELECT !== 'false') {
 
             try {
+                const testMode = process.env.SCRAPE_TEST_MODE === 'true';
                 console.log('Scraping PartSelect website for product data...');
 
-                const scrapedProducts = await scrapePartSelect();
+                const scrapedProducts = await scrapePartSelect(testMode);
 
                 if (scrapedProducts.length > 0) {
                     products = formatProductsForChromaDB(scrapedProducts);
