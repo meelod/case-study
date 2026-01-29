@@ -1,32 +1,43 @@
-const { routeQuery, formatContextForLLM } = require('./queryRouter');
+const { searchProducts } = require('./vectorStore');
 
 /**
- * Retrieves relevant product information using semantic search
- * @param {string} userQuery - The user's question
- * @returns {string|null} - Formatted context to add to the prompt, or null if no products should be shown
+ * RAG Service - Retrieves relevant products using semantic search
  */
+
 async function getRelevantContext(userQuery) {
     try {
-        // Use query router (now simplified to semantic-only)
-        const routerResults = await routeQuery(userQuery);
+        console.log(`[RAG] Searching for: "${userQuery.substring(0, 50)}..."`);
 
-        // Only return context if we found products
-        if (routerResults.combinedResults.length === 0) {
-            console.log('[RAG] No relevant products found');
+        const results = await searchProducts(userQuery, 10);
+
+        if (!results.length) {
+            console.log('[RAG] No products found');
             return null;
         }
 
-        // Format results for LLM
-        const context = formatContextForLLM(routerResults, userQuery);
-        console.log('[RAG] Retrieved relevant product information');
+        console.log(`[RAG] Found ${results.length} products: ${results.slice(0, 3).map(p => p.partNumber).join(', ')}...`);
+
+        // Format for LLM
+        let context = "\n\nRELEVANT PRODUCTS FROM DATABASE:\n\n";
+
+        results.forEach((product, i) => {
+            context += `--- Product ${i + 1} ---\n`;
+            context += `Part Number: ${product.partNumber}\n`;
+            context += `Name: ${product.name}\n`;
+            context += `Category: ${product.category}\n`;
+            context += `Brand: ${product.brand}\n`;
+            if (product.description) context += `Description: ${product.description}\n`;
+            if (product.symptoms?.length) context += `Fixes: ${product.symptoms.join(', ')}\n`;
+            if (product.replacementParts?.length) context += `Replaces: ${product.replacementParts.join(', ')}\n`;
+            if (product.compatibleModels?.length) context += `Compatible Models: ${product.compatibleModels.slice(0, 10).join(', ')}${product.compatibleModels.length > 10 ? '...' : ''}\n`;
+            context += `URL: ${product.url}\n\n`;
+        });
 
         return context;
     } catch (error) {
-        console.error('Error in RAG service:', error);
+        console.error('[RAG] Error:', error.message);
         return null;
     }
 }
 
-module.exports = {
-    getRelevantContext
-};
+module.exports = { getRelevantContext };
