@@ -202,7 +202,7 @@ async function scrapeProductDetail(page, productUrl, category) {
 
 async function scrapePartSelect(testMode = false) {
     const config = testMode ? MODE.TEST : MODE.FULL;
-    console.log(`\n🚀 Starting PartSelect scraper (${testMode ? 'TEST' : 'FULL'} mode)`);
+    console.log(`\n[SCRAPER] Starting PartSelect scraper (${testMode ? 'TEST' : 'FULL'} mode)`);
     console.log(`   Max brands: ${config.maxBrands === Infinity ? 'ALL' : config.maxBrands}`);
     console.log(`   Max products per brand: ${config.maxProductsPerBrand}\n`);
 
@@ -213,10 +213,10 @@ async function scrapePartSelect(testMode = false) {
         // Step 1: Find all brand pages
         let allBrandPages = [];
         for (const { url, category } of SCRAPE_URLS) {
-            console.log(`📋 Finding brand pages for: ${category}`);
+            console.log(`[SCRAPER] Finding brand pages for: ${category}`);
             const brandPages = await findBrandPages(page, url, category);
             allBrandPages.push(...brandPages);
-            console.log(`   ✓ Found ${brandPages.length} brand pages`);
+            console.log(`   Found ${brandPages.length} brand pages`);
         }
 
         // Limit brands in test mode
@@ -226,7 +226,7 @@ async function scrapePartSelect(testMode = false) {
         }
 
         // Step 2: Collect product URLs from each brand page
-        console.log(`\n📋 Collecting products from ${allBrandPages.length} brand pages...\n`);
+        console.log(`\n[SCRAPER] Collecting products from ${allBrandPages.length} brand pages...\n`);
         const productQueue = [];
 
         for (let i = 0; i < allBrandPages.length; i++) {
@@ -236,14 +236,14 @@ async function scrapePartSelect(testMode = false) {
             const products = await collectProductsFromBrandPage(page, url, config.maxProductsPerBrand);
             productQueue.push(...products.map(p => ({ ...p, category })));
 
-            console.log(`   ✓ ${products.length} products: ${products.slice(0, 5).map(p => p.partNumber).join(', ')}${products.length > 5 ? '...' : ''}`);
+            console.log(`   ${products.length} products: ${products.slice(0, 5).map(p => p.partNumber).join(', ')}${products.length > 5 ? '...' : ''}`);
             await new Promise(r => setTimeout(r, 300));
         }
 
-        console.log(`\n✅ Collected ${productQueue.length} product URLs\n`);
+        console.log(`\n[SCRAPER] Collected ${productQueue.length} product URLs\n`);
 
         // Step 3: Scrape each product detail page
-        console.log(`🔍 Scraping product details (${productQueue.length} products)...\n`);
+        console.log(`[SCRAPER] Scraping product details (${productQueue.length} products)...\n`);
 
         for (let i = 0; i < productQueue.length; i++) {
             const { url, partNumber, category } = productQueue[i];
@@ -258,7 +258,7 @@ async function scrapePartSelect(testMode = false) {
 
                 // Show sample data for first few products
                 if (i < 3) {
-                    console.log(`      ✓ ${partNumber}: ${productData.name.substring(0, 50)}...`);
+                    console.log(`      ${partNumber}: ${productData.name.substring(0, 50)}...`);
                     if (productData.symptoms.length) console.log(`        Symptoms: ${productData.symptoms.slice(0, 2).join(', ')}`);
                     if (productData.replacementParts.length) console.log(`        Replaces: ${productData.replacementParts.slice(0, 3).join(', ')}`);
                     if (productData.compatibleModels.length) console.log(`        Models: ${productData.compatibleModels.length} compatible`);
@@ -272,7 +272,7 @@ async function scrapePartSelect(testMode = false) {
         await browser.close();
     }
 
-    console.log(`\n✅ Scraping complete!`);
+    console.log(`\n[SCRAPER] Scraping complete!`);
     console.log(`   Total products: ${allProducts.length}`);
 
     // Summary

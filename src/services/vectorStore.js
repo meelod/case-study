@@ -15,7 +15,7 @@ async function initializeVectorStore(useScraper = true) {
                 const count = await chromaVectorStore.getCount();
                 console.log(`   ChromaDB collection count: ${count}`);
                 if (count > 0) {
-                    console.log(`✓ Vector store already initialized with ${count} products`);
+                    console.log(`[VECTOR] Vector store already initialized with ${count} products`);
                     console.log(`   Using ChromaDB collection: ${process.env.CHROMA_COLLECTION || 'partselect_products'}`);
                     console.log(`   Skipping scraping. To force re-scraping, set FORCE_REFRESH=true in your environment`);
                     return; // Exit early - skip scraping and initialization
