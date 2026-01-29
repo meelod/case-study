@@ -64,21 +64,70 @@ npm run dev
 - `GET /api/health` - Health check
 - `GET /api/debug/products` - View products in vector store
 
-## Project Structure
+## File Structure
 
 ```
-├── server.js                 # Express backend
+├── server.js                      # Express backend server
 ├── src/
-│   ├── services/
-│   │   ├── chromaVectorStore.js   # ChromaDB operations
-│   │   ├── ragService.js          # RAG context retrieval
-│   │   ├── vectorStore.js         # Initialization
-│   │   └── partSelectScraper.js   # Web scraper
-│   ├── components/           # React UI components
-│   ├── constants/            # Config & prompts
-│   └── pages/Chat.tsx        # Main chat page
-└── data/chroma/              # ChromaDB storage
+│   ├── services/                  # Core backend logic
+│   ├── components/                # React UI components
+│   ├── constants/                 # Configuration files
+│   ├── hooks/                     # React hooks
+│   ├── pages/                     # Page components
+│   ├── types/                     # TypeScript definitions
+│   └── utils/                     # Helper functions
+└── data/chroma/                   # ChromaDB storage
 ```
+
+## Key Files
+
+### Backend Services
+
+| File | Purpose |
+|------|---------|
+| `server.js` | Express server with `/api/chat` endpoint. Handles conversation history, calls RAG service, and forwards to OpenAI |
+| `src/services/chromaVectorStore.js` | ChromaDB operations: `initialize()`, `searchProducts()`, `getAllProducts()`. Computes embeddings via OpenAI and stores in Chroma |
+| `src/services/ragService.js` | RAG orchestration: takes user query, performs semantic search, formats product context for LLM |
+| `src/services/vectorStore.js` | Initialization wrapper: checks if DB has data, triggers scraping if empty, manages `FORCE_REFRESH` |
+| `src/services/partSelectScraper.js` | Web scraper using Puppeteer + Cheerio. Crawls PartSelect brand pages, extracts product metadata (part numbers, symptoms, compatible models) |
+
+### Frontend Components
+
+| File | Purpose |
+|------|---------|
+| `src/App.tsx` | Root component with header and connection status |
+| `src/pages/Chat.tsx` | Main chat page with message list, input, and loading states |
+| `src/components/ProductCard.tsx` | Displays product info with image, part number, and link to PartSelect |
+| `src/components/ConnectionStatus.tsx` | Real-time backend health indicator (Online/Offline) |
+| `src/components/chat/MessageBubble.tsx` | Chat message container with user/assistant styling |
+| `src/components/chat/MessageContent.tsx` | Parses message content, injects ProductCards when part numbers detected |
+| `src/components/chat/ChatInput.tsx` | Input field with send button |
+| `src/components/chat/TypingIndicator.tsx` | Animated dots shown while waiting for response |
+
+### Hooks & API
+
+| File | Purpose |
+|------|---------|
+| `src/hooks/useGPT.ts` | React hook managing chat state, message history, product data fetching, and API calls |
+| `src/api/api.ts` | Axios client for backend communication (`getAIMessage`, `getProductByPartNumber`) |
+
+### Configuration
+
+| File | Purpose |
+|------|---------|
+| `src/constants/prompts.js` | System prompt defining assistant behavior, scope rules, and response patterns |
+| `src/constants/scraper.js` | Scraper config: base URLs, timeouts, selectors |
+| `src/constants/products.js` | Sample product data for fallback when scraping disabled |
+| `src/constants/mock.js` | Mock response generator for testing without API key |
+| `src/constants/server.js` | Server config: port, API settings |
+
+### Types
+
+| File | Purpose |
+|------|---------|
+| `src/types/chat/GPTMessage.ts` | Message types: `ChatRequest`, `ChatResponse`, `MessageRole` |
+| `src/types/chat/ChatComponents.ts` | Props for chat components |
+| `src/types/product/ProductComponents.ts` | Props for `ProductCard` |
 
 ## Environment Variables
 
@@ -88,6 +137,14 @@ npm run dev
 | `CHROMA_URL` | Yes | ChromaDB server URL |
 | `SCRAPE_TEST_MODE` | No | `true` = 15 products, `false` = ~700 products |
 | `FORCE_REFRESH` | No | `true` = re-scrape and rebuild vector store |
+
+## How It Works
+
+1. **Scraping**: On startup, `partSelectScraper.js` crawls PartSelect brand pages and extracts product metadata
+2. **Embedding**: `chromaVectorStore.js` converts product text to vectors using OpenAI embeddings
+3. **Storage**: Vectors stored in ChromaDB for fast similarity search
+4. **Query**: User message → `ragService.js` embeds query → searches ChromaDB → returns top 10 products
+5. **Response**: Product context injected into prompt → OpenAI generates answer → streamed to UI
 
 ## Testing
 
