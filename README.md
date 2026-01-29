@@ -138,13 +138,105 @@ npm run dev
 | `SCRAPE_TEST_MODE` | No | `true` = 15 products, `false` = ~700 products |
 | `FORCE_REFRESH` | No | `true` = re-scrape and rebuild vector store |
 
+## Architecture
+
+### System Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                 │
+│  ┌───────────────────────────────┐      ┌───────────────────────────────────┐  │
+│  │   OFFLINE INGESTION PIPELINE  │      │       ONLINE QUERY PATH           │  │
+│  │                               │      │                                   │  │
+│  │  ┌─────────────────────────┐  │      │  ┌─────────────────────────────┐  │  │
+│  │  │    Puppeteer Scraper    │  │      │  │         React UI            │  │  │
+│  │  │    (partSelectScraper)  │  │      │  │         (Chat.tsx)          │  │  │
+│  │  └───────────┬─────────────┘  │      │  └─────────────┬───────────────┘  │  │
+│  │              │                │      │                │                  │  │
+│  │              ▼                │      │                ▼                  │  │
+│  │  ┌─────────────────────────┐  │      │  ┌─────────────────────────────┐  │  │
+│  │  │     Cheerio Parser      │  │      │  │      Express API Server     │  │  │
+│  │  │   (HTML → structured)   │  │      │  │        (server.js)          │  │  │
+│  │  └───────────┬─────────────┘  │      │  └─────────────┬───────────────┘  │  │
+│  │              │                │      │                │                  │  │
+│  │              ▼                │      │                ▼                  │  │
+│  │  ┌─────────────────────────┐  │      │  ┌─────────────────────────────┐  │  │
+│  │  │    Text Formatter       │  │      │  │        RAG Service          │  │  │
+│  │  │   (productToText)       │  │      │  │      (ragService.js)        │──┼──┼──┐
+│  │  └───────────┬─────────────┘  │      │  └─────────────┬───────────────┘  │  │  │
+│  │              │                │      │                │                  │  │  │
+│  │              ▼                │      │                │ Prompt assembly  │  │  │
+│  │  ┌─────────────────────────┐  │      │                ▼                  │  │  │
+│  │  │    OpenAI Embedder      │  │      │  ┌─────────────────────────────┐  │  │  │
+│  │  │  (text-embedding-ada)   │  │      │  │        OpenAI LLM           │  │  │  │
+│  │  └───────────┬─────────────┘  │      │  │       (gpt-4o-mini)         │  │  │  │
+│  │              │                │      │  └─────────────┬───────────────┘  │  │  │
+│  │              ▼                │      │                │ Completion       │  │  │
+│  │  ┌─────────────────────────┐  │      │                ▼                  │  │  │
+│  │  │       ChromaDB          │◄─┼──────┼────────── Response ───────────────┘  │  │
+│  │  │    (Vector Storage)     │  │      │                                   │  │  │
+│  │  └─────────────────────────┘  │      └───────────────────────────────────┘  │  │
+│  │         Top-K search ▲        │                                             │  │
+│  └───────────────────────┼───────┘                                             │  │
+│                          │                                                     │  │
+│                          └─────────────────────────────────────────────────────┘  │
+│                                        Semantic search                            │
+└───────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Runtime Query Flow
+
+```
+┌──────┐    ┌──────────┐    ┌────────────┐    ┌─────────────┐    ┌──────────┐
+│ User │───▶│ Chat UI  │───▶│ API Server │───▶│ Embed Query │───▶│ ChromaDB │
+└──────┘    └──────────┘    └────────────┘    └─────────────┘    └────┬─────┘
+                                   │                                  │
+                                   │ Cache/rate                       │ Top-K
+                                   │ limit (future)                   │ Products
+                                   │                                  │
+                                   ▼                                  ▼
+            ┌──────────┐    ┌────────────┐    ┌─────────────┐    ┌──────────┐
+            │ Response │◀───│   OpenAI   │◀───│   Prompt    │◀───│ Product  │
+            │          │    │    LLM     │    │   Builder   │    │ Context  │
+            └──────────┘    └────────────┘    └─────────────┘    └──────────┘
+                             Latency hotspot      Token budget
+```
+
+### Design Tradeoffs
+
+```
+┌─────────────────────────────────┐      ┌─────────────────────────────────┐
+│      CHOSE FOR CASE STUDY       │      │        AT SCALE I'D USE         │
+├─────────────────────────────────┤      ├─────────────────────────────────┤
+│                                 │      │                                 │
+│  Local ChromaDB                 │ ───▶ │  Hosted vector DB (Pinecone)    │
+│                                 │      │                                 │
+│  Batch scraping on startup      │ ───▶ │  Job queue + workers            │
+│                                 │      │                                 │
+│  OpenAI embeddings              │ ───▶ │  Self-hosted embeddings         │
+│                                 │      │                                 │
+│  Single Express server          │ ───▶ │  Load balancer + replicas       │
+│                                 │      │                                 │
+│  Puppeteer crawl                │ ───▶ │  Distributed scraping           │
+│                                 │      │                                 │
+│  In-memory conversations        │ ───▶ │  Redis/PostgreSQL sessions      │
+│                                 │      │                                 │
+│  Mock fallback on API error     │ ───▶ │  Model fallback (Claude, etc.)  │
+│                                 │      │                                 │
+│  No rate limiting               │ ───▶ │  Auth + quotas + rate limits    │
+│                                 │      │                                 │
+└─────────────────────────────────┘      └─────────────────────────────────┘
+```
+
 ## How It Works
 
 1. **Scraping**: On startup, `partSelectScraper.js` crawls PartSelect brand pages and extracts product metadata
-2. **Embedding**: `chromaVectorStore.js` converts product text to vectors using OpenAI embeddings
-3. **Storage**: Vectors stored in ChromaDB for fast similarity search
-4. **Query**: User message → `ragService.js` embeds query → searches ChromaDB → returns top 10 products
-5. **Response**: Product context injected into prompt → OpenAI generates answer → streamed to UI
+2. **Parsing**: Cheerio extracts structured data (part numbers, symptoms, compatible models) from HTML
+3. **Formatting**: `productToText()` converts product objects to searchable text strings
+4. **Embedding**: `chromaVectorStore.js` converts text to vectors using OpenAI `text-embedding-ada-002`
+5. **Storage**: Vectors stored in ChromaDB for fast similarity search
+6. **Query**: User message → RAG service embeds query → searches ChromaDB → returns top 10 products
+7. **Response**: Product context injected into prompt → OpenAI generates answer → returned to UI
 
 ## Testing
 
