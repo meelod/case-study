@@ -2,11 +2,8 @@ const { ChromaClient } = require('chromadb');
 const OpenAI = require('openai');
 
 /**
- * Chroma-backed vector store.
- *
- * We intentionally compute embeddings ourselves (OpenAI) and pass them to Chroma,
- * so we don't depend on Chroma's embedding-function configuration.
- *
+ * Chroma-backed vector store - Semantic Search Only
+ * 
  * Env:
  * - CHROMA_URL=http://localhost:8000
  * - CHROMA_COLLECTION=partselect_products
@@ -57,32 +54,19 @@ function getOpenAIClient() {
 }
 
 function productToText(product) {
-    const replacementParts = product.replacementParts || [];
-    const replacementText = replacementParts.length > 0
-        ? ` Replaces part numbers: ${replacementParts.join(', ')}.`
-        : '';
+    const parts = [
+        `${product.name} (${product.partNumber}).`,
+        product.manufacturerPartNumber && `Manufacturer Part Number: ${product.manufacturerPartNumber}.`,
+        product.manufacturedBy && `Manufactured by ${product.manufacturedBy}${product.manufacturedFor?.length ? ` for ${product.manufacturedFor.join(', ')}` : ''}.`,
+        product.productType && `Product type: ${product.productType}.`,
+        product.description,
+        `Category: ${product.category}. Brand: ${product.brand || 'Various'}.`,
+        product.compatibleModels?.length && `Compatible models: ${product.compatibleModels.map(m => typeof m === 'object' ? `${m.brand} ${m.modelNumber}` : m).join(', ')}.`,
+        product.replacementParts?.length && `Replaces part numbers: ${product.replacementParts.join(', ')}.`,
+        product.symptoms?.length && `Fixes symptoms: ${product.symptoms.join(', ')}.`,
+    ].filter(Boolean);
 
-    const manufacturerText = product.manufacturerPartNumber
-        ? ` Manufacturer Part Number: ${product.manufacturerPartNumber}.`
-        : '';
-
-    const manufacturedByText = product.manufacturedBy
-        ? ` Manufactured by ${product.manufacturedBy}${product.manufacturedFor && product.manufacturedFor.length > 0 ? ` for ${product.manufacturedFor.join(', ')}` : ''}.`
-        : '';
-
-    const symptomsText = product.symptoms && product.symptoms.length > 0
-        ? ` Fixes symptoms: ${product.symptoms.join(', ')}.`
-        : '';
-
-    const productTypeText = product.productType
-        ? ` Product type: ${product.productType}.`
-        : '';
-
-    const compatibleModelsText = product.compatibleModels && product.compatibleModels.length > 0
-        ? ` Compatible models: ${product.compatibleModels.map(m => typeof m === 'object' ? `${m.brand} ${m.modelNumber}` : m).join(', ')}.`
-        : '';
-
-    return `${product.name} (${product.partNumber}).${manufacturerText}${manufacturedByText}${productTypeText} ${product.description}. Category: ${product.category}. Brand: ${product.brand || 'Various'}.${compatibleModelsText}${replacementText}${symptomsText} ${product.installation || ''}. ${product.troubleshooting || ''}`;
+    return parts.join(' ');
 }
 
 async function embed(text) {
@@ -97,8 +81,6 @@ async function embed(text) {
 async function ensureCollection() {
     if (collection) return collection;
     const chroma = getChromaClient();
-    // We provide embeddings explicitly in this app (OpenAI), so we don't want/need
-    // Chroma's DefaultEmbeddingFunction (which requires @chroma-core/default-embed).
     collection = await chroma.getOrCreateCollection({
         name: COLLECTION_NAME,
         embeddingFunction: null,
@@ -108,10 +90,9 @@ async function ensureCollection() {
 
 function buildRecord(product) {
     const text = productToText(product);
-    const replacementParts = product.replacementParts || [];
-    const compatibleModels = product.compatibleModels || [];
-    const symptoms = product.symptoms || [];
-    const manufacturedFor = product.manufacturedFor || [];
+
+    // Helper to safely convert arrays to strings for Chroma metadata
+    const arrayToString = (arr) => Array.isArray(arr) ? arr.map(m => typeof m === 'object' ? `${m.brand} ${m.modelNumber}` : m).join(', ') : (arr || '');
 
     return {
         id: product.id,
@@ -124,89 +105,50 @@ function buildRecord(product) {
             brand: product.brand || 'Various',
             manufacturerPartNumber: product.manufacturerPartNumber || '',
             manufacturedBy: product.manufacturedBy || '',
-            manufacturedFor: Array.isArray(manufacturedFor) ? manufacturedFor.join(', ') : (manufacturedFor || ''),
-            symptoms: Array.isArray(symptoms) ? symptoms.join(', ') : (symptoms || ''),
+            manufacturedFor: arrayToString(product.manufacturedFor),
+            symptoms: arrayToString(product.symptoms),
             productType: product.productType || '',
-            // Chroma metadata must be primitives/null; store arrays as a string.
-            compatibleModels: Array.isArray(compatibleModels)
-                ? compatibleModels.map(m => typeof m === 'object' ? `${m.brand} ${m.modelNumber}` : m).join(', ')
-                : (compatibleModels || ''),
-            replacementParts: Array.isArray(replacementParts)
-                ? replacementParts.join(', ')
-                : (replacementParts || ''),
-            price: product.price || 'Price available on website',
-            inStock: product.inStock !== undefined ? product.inStock : true,
+            compatibleModels: arrayToString(product.compatibleModels),
+            replacementParts: arrayToString(product.replacementParts),
             url: product.url || '',
             imageUrl: product.imageUrl || '',
-            installation: product.installation || '',
-            troubleshooting: product.troubleshooting || '',
         },
     };
 }
 
 /**
- * Initialize / populate Chroma collection.
- * We only populate if the collection is empty, unless forceRefresh=true (then we delete + recreate).
+ * Initialize / populate Chroma collection
  */
 async function initialize(products, forceRefresh = false) {
     const chroma = getChromaClient();
-
-    // Make sure server is reachable early
     await chroma.version();
 
     if (forceRefresh) {
-        console.log(`FORCE_REFRESH enabled - deleting existing collection "${COLLECTION_NAME}"...`);
+        console.log(`FORCE_REFRESH - deleting collection "${COLLECTION_NAME}"...`);
         try {
-            // Delete the collection completely
             await chroma.deleteCollection({ name: COLLECTION_NAME });
-            console.log(`   Collection deleted successfully`);
+            console.log(`   Collection deleted`);
         } catch (e) {
-            // Collection might not exist, that's fine
-            if (e.message && !e.message.includes('does not exist')) {
-                console.warn(`   Warning deleting collection:`, e.message);
-            }
+            // Collection might not exist
         }
-        // Clear the cached collection reference
         collection = null;
-        // Wait a moment for deletion to complete
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(r => setTimeout(r, 500));
     }
 
-    // Get or create collection (will create new one if forceRefresh deleted it)
     const col = await ensureCollection();
     const existingCount = await col.count();
 
-    // Only skip if NOT forcing refresh AND there are existing records
     if (!forceRefresh && existingCount > 0) {
-        console.log(`Chroma collection "${COLLECTION_NAME}" already has ${existingCount} records`);
-        console.log(`   To force refresh, set FORCE_REFRESH=true in your environment`);
+        console.log(`Chroma collection already has ${existingCount} records`);
+        console.log(`   To force refresh, set FORCE_REFRESH=true`);
         return;
     }
 
-    // If forceRefresh is true, ensure collection is empty before adding
-    if (forceRefresh && existingCount > 0) {
-        console.log(`WARNING: Collection still has ${existingCount} records after deletion`);
-        console.log(`   Attempting to clear remaining records...`);
-        try {
-            // Get all IDs and delete them
-            const allData = await col.get();
-            if (allData.ids && allData.ids.length > 0) {
-                await col.delete({ ids: allData.ids });
-                console.log(`   Cleared ${allData.ids.length} remaining records`);
-            }
-        } catch (e) {
-            console.warn(`   Could not clear records (will proceed anyway):`, e.message);
-            // Continue anyway - upsert will overwrite existing records
-        }
-    }
+    console.log(`Adding ${products.length} products to Chroma...`);
 
-    console.log(`Adding ${products.length} products to Chroma collection "${COLLECTION_NAME}"...`);
-
-    // Batch upserts to keep memory predictable
     const batchSize = 50;
     for (let i = 0; i < products.length; i += batchSize) {
         const batch = products.slice(i, i + batchSize);
-
         const records = batch.map(buildRecord);
         const embeddings = await Promise.all(records.map(r => embed(r.document)));
 
@@ -221,9 +163,12 @@ async function initialize(products, forceRefresh = false) {
     }
 
     const finalCount = await col.count();
-    console.log(`Chroma collection "${COLLECTION_NAME}" now has ${finalCount} records`);
+    console.log(`Chroma collection now has ${finalCount} records`);
 }
 
+/**
+ * Semantic search for products
+ */
 async function searchProducts(query, limit = 3) {
     const col = await ensureCollection();
     const queryEmbedding = await embed(query);
@@ -231,14 +176,17 @@ async function searchProducts(query, limit = 3) {
     const res = await col.query({
         queryEmbeddings: [queryEmbedding],
         nResults: limit,
-        include: ['metadatas', 'documents', 'distances'],
+        include: ['metadatas', 'distances'],
     });
 
-    const metadatas = (res.metadatas && res.metadatas[0]) || [];
-    const distances = (res.distances && res.distances[0]) || [];
+    const metadatas = res.metadatas?.[0] || [];
+    const distances = res.distances?.[0] || [];
+
+    // Helper to parse comma-separated strings back to arrays
+    const parseArray = (str) => str ? str.split(', ').filter(Boolean) : [];
 
     return metadatas.map((m, idx) => ({
-        id: (res.ids && res.ids[0] && res.ids[0][idx]) || undefined,
+        id: res.ids?.[0]?.[idx],
         partNumber: m.partNumber,
         name: m.name,
         description: m.description,
@@ -246,247 +194,51 @@ async function searchProducts(query, limit = 3) {
         brand: m.brand,
         manufacturerPartNumber: m.manufacturerPartNumber || '',
         manufacturedBy: m.manufacturedBy || '',
-        manufacturedFor: m.manufacturedFor ? (typeof m.manufacturedFor === 'string' ? m.manufacturedFor.split(', ').filter(Boolean) : m.manufacturedFor) : [],
-        symptoms: m.symptoms ? (typeof m.symptoms === 'string' ? m.symptoms.split(', ').filter(Boolean) : m.symptoms) : [],
+        manufacturedFor: parseArray(m.manufacturedFor),
+        symptoms: parseArray(m.symptoms),
         productType: m.productType || '',
-        compatibleModels: m.compatibleModels ? (typeof m.compatibleModels === 'string' ? m.compatibleModels.split(', ').filter(Boolean) : m.compatibleModels) : [],
-        replacementParts: m.replacementParts ? (typeof m.replacementParts === 'string' ? m.replacementParts.split(', ').filter(Boolean) : m.replacementParts) : [],
-        price: m.price,
-        inStock: m.inStock,
+        compatibleModels: parseArray(m.compatibleModels),
+        replacementParts: parseArray(m.replacementParts),
         url: m.url,
         imageUrl: m.imageUrl || '',
-        installation: m.installation,
-        troubleshooting: m.troubleshooting,
         relevance: typeof distances[idx] === 'number' ? Math.max(0, 1 - distances[idx]) : undefined,
-    })).filter(p => p && p.partNumber && p.name);
+    })).filter(p => p?.partNumber && p?.name);
 }
 
+/**
+ * Get all products (for debug endpoint)
+ */
 async function getAllProducts(limit = 1000) {
     const col = await ensureCollection();
-    const res = await col.get({
-        limit,
-        include: ['metadatas'],
-    });
+    const res = await col.get({ limit, include: ['metadatas'] });
 
-    const metadatas = res.metadatas || [];
-    const ids = res.ids || [];
+    const parseArray = (str) => str ? str.split(', ').filter(Boolean) : [];
 
-    return metadatas.map((m, idx) => ({
-        id: ids[idx],
+    return (res.metadatas || []).map((m, idx) => ({
+        id: res.ids[idx],
         partNumber: m.partNumber,
         name: m.name,
         category: m.category,
         brand: m.brand,
         manufacturerPartNumber: m.manufacturerPartNumber || '',
         manufacturedBy: m.manufacturedBy || '',
-        manufacturedFor: m.manufacturedFor
-            ? (typeof m.manufacturedFor === 'string'
-                ? m.manufacturedFor.split(', ').filter(Boolean)
-                : m.manufacturedFor)
-            : [],
-        symptoms: m.symptoms
-            ? (typeof m.symptoms === 'string'
-                ? m.symptoms.split(', ').filter(Boolean)
-                : m.symptoms)
-            : [],
+        manufacturedFor: parseArray(m.manufacturedFor),
+        symptoms: parseArray(m.symptoms),
         productType: m.productType || '',
         url: m.url,
         imageUrl: m.imageUrl,
         description: m.description,
-        compatibleModels: m.compatibleModels
-            ? (typeof m.compatibleModels === 'string'
-                ? m.compatibleModels.split(', ').filter(Boolean)
-                : m.compatibleModels)
-            : [],
-        replacementParts: m.replacementParts
-            ? (typeof m.replacementParts === 'string'
-                ? m.replacementParts.split(', ').filter(Boolean)
-                : m.replacementParts)
-            : [],
-    })).filter(p => p && p.partNumber);
-}
-
-/**
- * Search for products by replacement part number
- * This searches all products' replacementParts metadata field
- */
-async function searchByReplacementPart(replacementPartNumber, brandFilter = null) {
-    const col = await ensureCollection();
-    const partLower = replacementPartNumber.toLowerCase();
-
-    // Get all products and filter by replacement parts
-    const res = await col.get({
-        limit: 10000, // Get all products
-        include: ['metadatas'],
-    });
-
-    const metadatas = res.metadatas || [];
-    const ids = res.ids || [];
-
-    const matches = metadatas
-        .map((m, idx) => {
-            const replacementParts = m.replacementParts
-                ? (typeof m.replacementParts === 'string'
-                    ? m.replacementParts.split(', ').filter(Boolean)
-                    : m.replacementParts)
-                : [];
-
-            // Check if this product replaces the searched part number
-            const matchesReplacement = replacementParts.some(rp => rp.toLowerCase() === partLower);
-
-            if (!matchesReplacement) return null;
-
-            // Filter by brand if specified
-            if (brandFilter && m.brand) {
-                const productBrand = m.brand.toLowerCase();
-                if (!productBrand.includes(brandFilter.toLowerCase())) {
-                    return null;
-                }
-            }
-
-            return {
-                id: ids[idx],
-                partNumber: m.partNumber,
-                name: m.name,
-                description: m.description,
-                category: m.category,
-                brand: m.brand,
-                manufacturerPartNumber: m.manufacturerPartNumber || '',
-                manufacturedBy: m.manufacturedBy || '',
-                manufacturedFor: m.manufacturedFor ? (typeof m.manufacturedFor === 'string' ? m.manufacturedFor.split(', ').filter(Boolean) : m.manufacturedFor) : [],
-                symptoms: m.symptoms ? (typeof m.symptoms === 'string' ? m.symptoms.split(', ').filter(Boolean) : m.symptoms) : [],
-                productType: m.productType || '',
-                compatibleModels: m.compatibleModels ? (typeof m.compatibleModels === 'string' ? m.compatibleModels.split(', ').filter(Boolean) : m.compatibleModels) : [],
-                replacementParts: replacementParts,
-                price: m.price,
-                inStock: m.inStock,
-                url: m.url,
-                imageUrl: m.imageUrl || '',
-                installation: m.installation,
-                troubleshooting: m.troubleshooting,
-            };
-        })
-        .filter(p => p !== null && p.partNumber && p.name);
-
-    return matches;
-}
-
-/**
- * Search for products by compatible model number
- * This searches all products' compatibleModels metadata field
- */
-async function searchByCompatibleModel(modelNumber, brandFilter = null) {
-    const col = await ensureCollection();
-    const modelUpper = modelNumber.toUpperCase();
-
-    // Get all products and filter by compatible models
-    const res = await col.get({
-        limit: 10000, // Get all products
-        include: ['metadatas'],
-    });
-
-    const metadatas = res.metadatas || [];
-    const ids = res.ids || [];
-
-    const matches = metadatas
-        .map((m, idx) => {
-            const compatibleModels = m.compatibleModels
-                ? (typeof m.compatibleModels === 'string'
-                    ? m.compatibleModels.split(', ').filter(Boolean)
-                    : m.compatibleModels)
-                : [];
-
-            // Check if this product is compatible with the searched model number
-            const matchesModel = compatibleModels.some(cm => cm.toUpperCase() === modelUpper);
-
-            if (!matchesModel) return null;
-
-            // Filter by brand if specified
-            if (brandFilter && m.brand) {
-                const productBrand = m.brand.toLowerCase();
-                if (!productBrand.includes(brandFilter.toLowerCase())) {
-                    return null;
-                }
-            }
-
-            return {
-                id: ids[idx],
-                partNumber: m.partNumber,
-                name: m.name,
-                description: m.description,
-                category: m.category,
-                brand: m.brand,
-                compatibleModels: compatibleModels,
-                replacementParts: m.replacementParts ? (typeof m.replacementParts === 'string' ? m.replacementParts.split(', ').filter(Boolean) : m.replacementParts) : [],
-                price: m.price,
-                inStock: m.inStock,
-                url: m.url,
-                installation: m.installation,
-                troubleshooting: m.troubleshooting,
-            };
-        })
-        .filter(p => p !== null && p.partNumber && p.name);
-
-    return matches;
+        compatibleModels: parseArray(m.compatibleModels),
+        replacementParts: parseArray(m.replacementParts),
+    })).filter(p => p?.partNumber);
 }
 
 async function getCount() {
     try {
         const col = await ensureCollection();
         return await col.count();
-    } catch (error) {
-        // Collection doesn't exist yet or error accessing it
+    } catch {
         return 0;
-    }
-}
-
-/**
- * FAST: Direct lookup by part number using ChromaDB's where clause
- * This is O(1) lookup, not semantic search
- */
-async function getProductByPartNumber(partNumber) {
-    const col = await ensureCollection();
-    const partLower = partNumber.toLowerCase().replace(/[^a-z0-9]/g, '_');
-
-    try {
-        // Direct lookup by ID (which is derived from part number)
-        const res = await col.get({
-            ids: [partLower],
-            include: ['metadatas'],
-        });
-
-        if (res.ids && res.ids.length > 0 && res.metadatas && res.metadatas[0]) {
-            const m = res.metadatas[0];
-            return {
-                id: res.ids[0],
-                partNumber: m.partNumber,
-                name: m.name,
-                category: m.category,
-                brand: m.brand,
-                manufacturerPartNumber: m.manufacturerPartNumber || '',
-                manufacturedBy: m.manufacturedBy || '',
-                manufacturedFor: m.manufacturedFor
-                    ? (typeof m.manufacturedFor === 'string' ? m.manufacturedFor.split(', ').filter(Boolean) : m.manufacturedFor)
-                    : [],
-                symptoms: m.symptoms
-                    ? (typeof m.symptoms === 'string' ? m.symptoms.split(', ').filter(Boolean) : m.symptoms)
-                    : [],
-                productType: m.productType || '',
-                url: m.url,
-                imageUrl: m.imageUrl,
-                description: m.description,
-                compatibleModels: m.compatibleModels
-                    ? (typeof m.compatibleModels === 'string' ? m.compatibleModels.split(', ').filter(Boolean) : m.compatibleModels)
-                    : [],
-                replacementParts: m.replacementParts
-                    ? (typeof m.replacementParts === 'string' ? m.replacementParts.split(', ').filter(Boolean) : m.replacementParts)
-                    : [],
-            };
-        }
-        return null;
-    } catch (error) {
-        console.error('Error in getProductByPartNumber:', error.message);
-        return null;
     }
 }
 
@@ -495,8 +247,4 @@ module.exports = {
     searchProducts,
     getAllProducts,
     getCount,
-    searchByReplacementPart,
-    searchByCompatibleModel,
-    getProductByPartNumber,
 };
-
