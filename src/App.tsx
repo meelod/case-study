@@ -2,7 +2,7 @@ import React from "react";
 import Chat from "./pages/Chat";
 import ConnectionStatus from "./components/ConnectionStatus";
 
-const App: React.FC = () => {
+function App() {
     return (
         <div className="bg-slate-50 h-screen flex flex-col overflow-hidden">
             {/* Header */}

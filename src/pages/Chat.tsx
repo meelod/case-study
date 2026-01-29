@@ -4,7 +4,7 @@ import MessageBubble from "../components/chat/MessageBubble";
 import ChatInput from "../components/chat/ChatInput";
 import TypingIndicator from "../components/chat/TypingIndicator";
 
-const Chat: React.FC = () => {
+function Chat() {
     const [input, setInput] = useState<string>("");
     const { messages, productData, isLoading, sendMessage } = useGPT();
 

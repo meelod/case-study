@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-const ConnectionStatus: React.FC = () => {
+function ConnectionStatus() {
     const [isOnline, setIsOnline] = useState<boolean | null>(null); // null = checking
 
     useEffect(() => {
