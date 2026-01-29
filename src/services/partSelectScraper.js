@@ -12,18 +12,11 @@ const { SCRAPE_CONFIG, SCRAPE_URLS } = require('../constants/scraper');
 
 const BASE_URL = 'https://www.partselect.com';
 
-// =============================================================================
-// CONFIGURATION
-// =============================================================================
-
 const MODE = {
     TEST: { maxBrands: 3, maxProductsPerBrand: 5 },
     FULL: { maxBrands: Infinity, maxProductsPerBrand: 10 }
 };
 
-// =============================================================================
-// BROWSER SETUP
-// =============================================================================
 
 function normalizeUrl(url) {
     if (!url) return null;
@@ -57,10 +50,6 @@ async function loadPage(page, url, waitMs = 1000) {
         return false;
     }
 }
-
-// =============================================================================
-// STEP 1: COLLECT PRODUCT URLS FROM BRAND PAGES
-// =============================================================================
 
 async function findBrandPages(page, categoryUrl, category) {
     if (!await loadPage(page, categoryUrl)) return [];
@@ -118,10 +107,6 @@ async function collectProductsFromBrandPage(page, brandUrl, maxProducts) {
 
     return products.map(p => ({ ...p, url: normalizeUrl(p.url) }));
 }
-
-// =============================================================================
-// STEP 2: SCRAPE PRODUCT DETAIL PAGE
-// =============================================================================
 
 async function scrapeProductDetail(page, productUrl, category) {
     if (!await loadPage(page, productUrl, 800)) return null;
@@ -215,10 +200,6 @@ async function scrapeProductDetail(page, productUrl, category) {
     };
 }
 
-// =============================================================================
-// MAIN SCRAPER
-// =============================================================================
-
 async function scrapePartSelect(testMode = false) {
     const config = testMode ? MODE.TEST : MODE.FULL;
     console.log(`\n🚀 Starting PartSelect scraper (${testMode ? 'TEST' : 'FULL'} mode)`);
@@ -305,9 +286,6 @@ async function scrapePartSelect(testMode = false) {
     return allProducts;
 }
 
-// =============================================================================
-// FORMAT FOR CHROMADB
-// =============================================================================
 
 function formatProductsForChromaDB(products) {
     return products.map(p => ({
