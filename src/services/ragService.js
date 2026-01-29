@@ -19,7 +19,8 @@ async function getRelevantContext(userQuery) {
         }
 
         // Use smart query router (combines regex + RAG)
-        const routerResults = await routeQuery(userQuery);
+        // Pass the pre-computed analysis to avoid duplicate computation
+        const routerResults = await routeQuery(userQuery, analysis);
 
         // Only return context if we found products
         if (routerResults.combinedResults.length === 0) {
