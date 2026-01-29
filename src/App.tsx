@@ -1,5 +1,6 @@
 import React from "react";
 import Chat from "./pages/Chat";
+import ConnectionStatus from "./components/ConnectionStatus";
 
 const App: React.FC = () => {
     return (
@@ -17,10 +18,7 @@ const App: React.FC = () => {
                         <p className="text-[10px] text-teal-100 -mt-0.5">Parts Assistant</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-teal-100">
-                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
-                    Online
-                </div>
+                <ConnectionStatus />
             </div>
             <Chat />
         </div>
